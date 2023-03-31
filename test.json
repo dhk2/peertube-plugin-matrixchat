@@ -1,0 +1,62 @@
+{
+    "content": {
+        "topic": "PeerTube Plugin Testing"
+    },
+    "origin_server_ts": 1679781436205,
+    "sender": "@errhead:matrix.org",
+    "state_key": "",
+    "type": "m.room.topic",
+    "unsigned": {
+        "age": 52835
+    },
+    "event_id": "$VzoRtkdGpbSum4fsLxLUicugBv7CsX0hVkMbggh75GU",
+    "room_id": "!ULdntgxAgvbNuXZQGu:matrix.org"
+}
+{
+    "content": {
+        "topic": "PeerTube Plugin Testing"
+    },
+    "origin_server_ts": 1679781436205,
+    "sender": "@errhead:matrix.org",
+    "state_key": "",
+    "type": "m.room.topic",
+    "unsigned": {
+        "age": 52835
+    },
+    "event_id": "$VzoRtkdGpbSum4fsLxLUicugBv7CsX0hVkMbggh75GU",
+    "room_id": "!ULdntgxAgvbNuXZQGu:matrix.org"
+}
+
+{
+    "_events": {},
+    "_eventsCount": 0,
+    "roomId": "!ULdntgxAgvbNuXZQGu:matrix.org",
+    "userId": "@errhead:matrix.org",
+    "_isOutOfBand": false,
+    "modified": 1679781490472,
+    "requestedProfileInfo": false,
+    "typing": false,
+    "name": "errhead",
+    "rawDisplayName": "errhead",
+    "powerLevel": 0,
+    "powerLevelNorm": 0,
+    "membership": "join",
+    "disambiguate": false,
+    "events": {
+        "member": {
+            "content": {
+                "displayname": "errhead",
+                "membership": "join"
+            },
+            "origin_server_ts": 1679781436037,
+            "sender": "@errhead:matrix.org",
+            "state_key": "@errhead:matrix.org",
+            "type": "m.room.member",
+            "unsigned": {
+                "age": 53003
+            },
+            "event_id": "$9O7rworf1ApBIELrWBd3urhBGgFQdnJIcghBMerzrqA",
+            "room_id": "!ULdntgxAgvbNuXZQGu:matrix.org"
+        }
+    }
+}mxc://matrix.org/fjFhgHThAKjZziGpQsMlIWwa
