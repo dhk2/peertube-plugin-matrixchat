@@ -47,16 +47,60 @@ async function register ({
   var base = await peertubeHelpers.config.getWebserverUrl();
   let adminToken = await settingsManager.getSetting("matrix-admin-token");
   let homeServer = await settingsManager.getSetting("matrix-home");
+
 const router = getRouter();
 router.use('/getmatrixuser', async (req,res) => {
   console.log("███ getting matrix user",req.query);
   let user = await peertubeHelpers.user.getAuthUser(res);
-  console.log("███ returned user",user);
+  //console.log("███ returned user",user);
   if (user) {
     let userName = user.dataValues.username;
-    let matrixUser = await storageManager.getData("mu-" + userName);
-    if (matrixUser && matrixUser != null){
-      console.log("███ saved matrix user",userName,matrixUser,matrixUser.length);
+    let matrixUser;
+    matrixUser = await storageManager.getData("mu-" + userName);
+    console.log("███ returned saved matrix user",userName,matrixUser)
+    if (matrixUser){
+      console.log("███ saved matrix user",userName,matrixUser);
+      let turnServer =  homeServer+'/_matrix/client/r0/voip/turnServer';
+      let results;
+      let headers = {
+        headers: {
+          Authorization: 'Bearer ' + matrixUser.accessToken
+        }
+      }
+      try {
+        results = await axios.get(turnServer,headers);
+      } catch (err) {
+        console.log("███ errored getting turnserver, Trying to regenerate access token",err)
+        results="crap";
+      }
+      console.log("███ turnsever check",turnServer,results);
+      if (results === "crap"){
+        let manualLogin = `{
+          "type": "m.login.password",
+          "identifier": {
+            "type": "m.id.user",
+            "user": "`+matrixUser.userId+`"
+          },
+          "password": "cryptodid",
+          "session": "54321"
+        }`
+        let loginApi = homeServer+":8448/_matrix/client/r0/login"
+        try {
+          results = await axios.post(loginApi,manualLogin);
+        } catch (err) {
+          console.log("error attempting password logon",manualLogin,err);
+        }
+        if (results && results.data){
+          console.log ("███ results data",results.data);
+          matrixUser= {};
+          matrixUser.baseUrl = homeServer;
+          matrixUser.userId = results.data.user_id;
+          matrixUser.accessToken = results.data.access_token;
+          console.log("███ new matrix user ",matrixUser);
+          storageManager.storeData("mu-"+userName,matrixUser);
+          return res.status(200).send(matrixUser);
+        }
+      }
       return res.status(200).send(matrixUser);
     }
     let newUser = {"username":userName, "password":"cryptodid", "auth": {"type":"m.login.dummy"}};
@@ -75,6 +119,8 @@ router.use('/getmatrixuser', async (req,res) => {
       console.log("███ failed registering new account for",userName,newUser,err);
     }
   }
+  /* getting issues with guest account no working with sdk client client.on
+
   let guestRegistrationApi = homeServer+"/_matrix/client/r0/register?kind=guest";
   let guestUser;
   try {
@@ -89,10 +135,11 @@ router.use('/getmatrixuser', async (req,res) => {
   } catch (err) {
     console.log("███ failed getting guest account",guestUser,err);
   }
+  */
   let hack ={
     baseUrl: "https://invidious.peertube.biz",
-    accessToken: "lVZqe6L9S5UVowl5kn8t-AknuUjaXEyJg0H8HI3Kh3Q",
-    userId: "@fred:invidious.peertube.biz"
+    accessToken: "8rqR9Kdo5f_c_uFMk-NqyyJoJ4h_OP0ifvuRu25T_po",
+    userId: "@anon:invidious.peertube.biz"
   }
   console.log("███ default matrix user",hack)
   return res.status(200).send(hack);
