@@ -1,4 +1,3 @@
-Plug-in to investigate the performance and usablity of using NOSTR back end for livechat
+Plug-in to investigate the performance and usablity of using Matrix back end for live chat
 
-client packages found lacking, no using matrix, making the name a misonmer
 
