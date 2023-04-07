@@ -18,13 +18,15 @@ async function register ({ registerHook, peertubeHelpers }) {
       console.log("user data for logged in user",user,client);
       if (client){
         let fullName = client.credentials.userId
-        let nameEnd = fullName.indexOf(':');
-        let clientName = fullName.substring(1,nameEnd);
-        console.log("███ client exists already when initializing account",client.credentials.userId,client.isGuestAccount,clientName,user.userName);
-        if (user.userName != clientName){
-          console.log(">>>>>Names do not match<<<<<");
-          //await client.logout();
-          client=undefined;
+        if (fullName){
+          let nameEnd = fullName.indexOf(':');
+          let clientName = fullName.substring(1,nameEnd);
+          console.log("███ client exists already when initializing account",client.credentials.userId,client.isGuestAccount,clientName,user.userName);
+          if (user.userName != clientName){
+            console.log(">>>>>Names do not match<<<<<");
+            //await client.logout();
+            client=undefined;
+          }
         }
       }
       if (!client){
@@ -108,9 +110,11 @@ async function register ({ registerHook, peertubeHelpers }) {
       console.log("111111",peertubeHelpers.getBaseStaticRoute(),peertubeHelpers.getBaseRouterRoute());
       console.log("2222222",peertubeHelpers.getBasePluginClientPath(),peertubeHelpers.isLoggedIn())
       console.log("3333333",peertubeHelpers.getAuthHeader);
+      console.log("44444",roomId,client);
       let addSpot = document.getElementById('plugin-placeholder-player-next');
 
       if (client && roomId) {
+        console.log("creating chat room html");
         let buttonHTML = `<label id ="matrixchatlabel" style="color:white;">`+video.channel.displayName+` chat</label>`;
         buttonHTML = buttonHTML + ` <button id = "closematrixchat"  class="orange-button ng-star-inserted" style="float:right;" title="close chat panel">` + "❌" + `</button>`
 
@@ -216,6 +220,8 @@ async function register ({ registerHook, peertubeHelpers }) {
           }
         
         });
+      } else {
+        console.log ("not creating room html",roomId,client);
       }
       if (matrixSettingsButton){
         matrixSettingsButton.onclick = async function () {
@@ -225,7 +231,7 @@ async function register ({ registerHook, peertubeHelpers }) {
       }
       if (matrixLinkButton){
         matrixLinkButton.onclick = async function () {
-          let roomLink ="https://matrix.to/#/#p2ptube-"+video.byVideoChannel+":invidious.peertube.biz"
+          let roomLink ="https://matrix.to/#/#p2ptube-"+video.byVideoChannel+":matrix.peertube.support"
           window.open(roomLink, '_blank');
 
         }
