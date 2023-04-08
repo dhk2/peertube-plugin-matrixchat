@@ -140,9 +140,12 @@ async function register ({
     return res.status(200).send(hack);
   })
   router.use('/getchatroom', async (req, res) => {
-    console.log("███ getting chatroom ███");
+    console.log("███ getting chatroom ███",req);
     //return res.status(200).send("!ULdntgxAgvbNuXZQGu:matrix.org");
     let channel = req.query.channel;
+    if (channel=="live@jupiter.tube"){
+      return res.status(200).send(`!gJYEKNllaubNlNkFIj:jupiterbroadcasting.com`);
+    }
     let parts = channel.split('@');
     console.log("███ parts",parts);
     let customChat;
