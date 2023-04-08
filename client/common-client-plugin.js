@@ -231,7 +231,7 @@ async function register ({ registerHook, peertubeHelpers }) {
       }
       if (matrixLinkButton){
         matrixLinkButton.onclick = async function () {
-          let roomLink ="https://matrix.to/#/#p2ptube-"+video.byVideoChannel+":matrix.peertube.support"
+          let roomLink ="https://matrix.to/#/"+video.byVideoChannel+":matrix.peertube.support"
           window.open(roomLink, '_blank');
 
         }
