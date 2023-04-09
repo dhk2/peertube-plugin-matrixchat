@@ -39,10 +39,27 @@ async function register ({
     private: true
   })
   registerSetting({
+    name: 'matrix-user-auto',
+    label: 'Automatically create local matrix accounts for peertube accounts',
+    type: 'input-checkbox',
+    descriptionHTML: 'This will enable user avatars and display names. Can use shared secret or open registration',
+    deault:true,
+    private: false
+  })
+  registerSetting({
+    name: 'matrix-room-auto',
+    label: 'Automatically create local matrix rooms for every channel',
+    type: 'input-checkbox',
+    descriptionHTML: 'This will create rooms on the home server for every channel. if disabled only channels with manually configured room addresses will have chat available',
+    deault:true,
+    private: false
+  })
+
+  registerSetting({
     name: 'matrix-shared-secret',
     label: 'Shared secret to allow account creation on matrix server',
     type: 'input-password',
-    descriptionHTML: 'should be the same as the one configured in synapse/dendrite',
+    descriptionHTML: 'should be the same as the one configured in synapse/dendrite, if not present open registration will be attempted',
     private: true
   })
   registerSetting({
@@ -53,6 +70,16 @@ async function register ({
     deault:true,
     private: false
   })
+
+  registerSetting({
+    name: 'matrix-anon-allow',
+    label: 'Allow unlogged in users to partake anonymously in chat',
+    type: 'input-checkbox',
+    descriptionHTML: 'This will enable system anon account in all channels. If channels have problems they can moderate the anon accunt',
+    deault:true,
+    private: false
+  })
+
   registerSetting({
     name: 'matrix-anon',
     label: 'Matrix account for unlogged in users',

@@ -183,7 +183,7 @@ async function register ({ registerHook, peertubeHelpers }) {
           await client.joinRoom(roomId)
           console.log("joining room",roomId);
           client.on("Room.timeline", async function(event, room, toStartOfTimeline) {
-           // console.log("room.timeline",event);
+            console.log("room.timeline event",event,"now the event event",event.event,"now the content",event.event.content);
             //if (room && room.roomId !="!ULdntgxAgvbNuXZQGu:matrix.org"){
               if (room && room.roomId !=roomId){
                // console.log("skipping",room.roomId,roomId);
