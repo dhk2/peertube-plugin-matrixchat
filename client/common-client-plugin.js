@@ -227,13 +227,13 @@ async function register ({ registerHook, peertubeHelpers }) {
         matrixSettingsButton.onclick = async function () {
             console.log("this",this);
 
+
         }
       }
       if (matrixLinkButton){
         matrixLinkButton.onclick = async function () {
           let roomLink ="https://matrix.to/#/"+roomId;
           window.open(roomLink, '_blank');
-
         }
       }
       if (inputBox){
