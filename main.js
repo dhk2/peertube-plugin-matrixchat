@@ -101,6 +101,9 @@ async function register ({
   let sharedSecret = await settingsManager.getSetting("matrix-shared-secret");
   let anonUser = await settingsManager.getSetting("matrix-anon");
   let anonToken = await settingsManager.getSetting("matrix-anon-token");
+  let autoUser = await settingsManager.getSetting("matrix-user-auto");
+  let autoRoom = await settingsManager.getSetting("matrix-room-auto");
+  let enableAnon = await settingsManager.getSetting("matrix-anon-allow");
   if (anonUser && anonUser.indexOf(':')<1){
     let parts = homeServer.split("/");
     console.log("parts:",parts);
@@ -261,6 +264,23 @@ async function register ({
     }
     return res.status(400).send();
   })
+  router.use('/sendinvite', async (req, res) => {
+    console.log("███ Sending an invite", req.query);
+    let channel = req.query.room;
+    let target = req.query.user;
+    let userJson = {user_id: target};
+    let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(channel)+`/invite`
+    let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
+    let result;
+    try {
+      result = await axios.post(inviteApi,userJson,headers);
+      console.log("sent invite",result);
+      return res.status(200).send(result.data);
+    } catch (err) {
+      console.log("failed sending invite",inviteApi,err);
+    }
+    return res.status(400).send();
+  })
   async function checkTokenValid(user){
     let turnServer =  homeServer+'/_matrix/client/r0/voip/turnServer';
     let headers = {headers: {Authorization: 'Bearer ' + user.accessToken }};
@@ -346,39 +366,40 @@ async function register ({
       console.log("███ error attempting to get nonce",nonceRequest,err);
       return;
     }
-    let newUser={};
-    newUser.nonce=nonce;
-    newUser.username=user.dataValues.username;
-    newUser.password=password;
-    newUser.admin = false;
-    let macText=nonce+'\0'+user.dataValues.username+'\0'+password+'\0'+"notadmin";
-    let macEncodedString = Buffer.from(macText, 'utf-8').toString();
-    let mac = hmacsha1(sharedSecret, macEncodedString);
-    let mac3 = hmacsha1(sharedSecret,macText);
-    console.log("███ MAC::",mac,macText,mac3,macEncodedString);
-    let mac2  = CryptoJS.HmacSHA1(macEncodedString, sharedSecret);
-    
-    let mac4 = CryptoJS.HmacSHA1(macText, sharedSecret);
-    console.log("███ MAC2::",mac2+"",macText,mac4+'',macEncodedString);
-    newUser.mac=mac4+"";
-    try {
-      let createResult = await axios.post(nonceRequest,newUser);
-      if (createResult && createResult.data){
-        console.log("███ created user:",createResult.data);
-        let matrixUser= {};
-        matrixUser.baseUrl = "https://"+createResult.data.home_server;
-        matrixUser.userId = createResult.data.user_id;
-        matrixUser.accessToken = createResult.data.access_token;
-        matrixUser.password = password;
-        console.log("███ new matrix user ",matrixUser);
-        storageManager.storeData("mu-"+user.dataValues.username,matrixUser);
-        return matrixUser;
+    if (nonce){
+      let newUser={};
+      newUser.nonce=nonce;
+      newUser.username=user.dataValues.username;
+      newUser.password=password;
+      newUser.admin = false;
+      let macText=nonce+'\0'+user.dataValues.username+'\0'+password+'\0'+"notadmin";
+      let macEncodedString = Buffer.from(macText, 'utf-8').toString();
+      let mac = hmacsha1(sharedSecret, macEncodedString);
+      let mac3 = hmacsha1(sharedSecret,macText);
+      console.log("███ MAC::",mac,macText,mac3,macEncodedString);
+      let mac2  = CryptoJS.HmacSHA1(macEncodedString, sharedSecret);
+      
+      let mac4 = CryptoJS.HmacSHA1(macText, sharedSecret);
+      console.log("███ MAC2::",mac2+"",macText,mac4+'',macEncodedString);
+      newUser.mac=mac4+"";
+      try {
+        let createResult = await axios.post(nonceRequest,newUser);
+        if (createResult && createResult.data){
+          console.log("███ created user:",createResult.data);
+          let matrixUser= {};
+          matrixUser.baseUrl = "https://"+createResult.data.home_server;
+          matrixUser.userId = createResult.data.user_id;
+          matrixUser.accessToken = createResult.data.access_token;
+          matrixUser.password = password;
+          console.log("███ new matrix user ",matrixUser);
+          storageManager.storeData("mu-"+user.dataValues.username,matrixUser);
+          return matrixUser;
+        }
+      } catch(err) {
+        console.log("███ error attempting to get nonce",nonceRequest,err);
+        return;
       }
-    } catch(err) {
-      console.log("███ error attempting to get nonce",nonceRequest,err);
-      return;
     }
-
   }
 }
 async function unregister () {

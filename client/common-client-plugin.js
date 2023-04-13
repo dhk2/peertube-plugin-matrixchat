@@ -54,6 +54,9 @@ async function register ({ registerHook, peertubeHelpers }) {
           console.log("rooms user is a member of",rooms);
           console.log("client settings",client.avatar_url);
           console.log("peertube settings",user.account.avatars[0]);
+          console.log(client,user.account.displayName);
+          client.setDisplayName(user.account.displayName);
+          client.setRoomTopic('just testing for error message response');
           if (user.account.avatars[0]){
             const imageResponse = await axios.get(user.account.avatars[0].path, { responseType: 'arraybuffer' });
             const imageType = imageResponse.headers['content-type'];
@@ -63,6 +66,7 @@ async function register ({ registerHook, peertubeHelpers }) {
             await client.setAvatarUrl(matrixUrl);
             console.log("fixed",client.avatar_url);
           }
+          
         })
       }
     }
@@ -119,7 +123,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         buttonHTML = buttonHTML + ` <button id = "closematrixchat"  class="orange-button ng-star-inserted" style="float:right;" title="close chat panel">` + "❌" + `</button>`
 
         buttonHTML = buttonHTML + ` <button id = "matrixsettingsbutton"  class="orange-button ng-star-inserted" style="float:right;" title="Matrix Chat settings">` + "⚙" + `</button>`
-        buttonHTML = buttonHTML + ` <button id = "matrixlinkbutton"  class="orange-button ng-star-inserted" style="float:right;" title="open chat in telegram">` + "🔗" + `</button>`
+        buttonHTML = buttonHTML + ` <button id = "matrixlinkbutton"  class="orange-button ng-star-inserted" style="float:right;" title="open chat in element">` + "🔗" + `</button>`
         buttonHTML = buttonHTML + ` <button id = "openmatrixchat"  class="orange-button ng-star-inserted" style="float:right;" title="open chat panel">` +video.channel.displayName+ " chat" + `</button>`
 
         let titleBar=document.createElement('span');
@@ -172,7 +176,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         let chatMessages=document.getElementById("matrix-chats");
         let sendButton = document.getElementById('send-button');
         let inputBox = document.getElementById('new-message');
-        let matrixSettingsButton = document.getElementById('bigchat');
+        let matrixSettingsButton = document.getElementById('matrixsettingsbutton');
         let matrixLinkButton = document.getElementById('matrixlinkbutton');
         let closeMatrixChat = document.getElementById('closematrixchat');
         let openMatrixChat = document.getElementById('openmatrixchat');
@@ -201,7 +205,23 @@ async function register ({ registerHook, peertubeHelpers }) {
               let link = client.mxcUrlToHttp(event.event.content.url);
               text = `<a href="`+link+`" target="_blank" rel="noopener noreferrer"><img src="`+picture+`" ></a>`;
             } else {
-              text = message;
+              if (event.event.content.formatted_body){
+                text = event.event.content.formatted_body;
+              } else {
+                text = message.replace(new RegExp('\r?\n','g'), '<br />');
+              }
+              if (text.indexOf("blockquote")>0){
+                text = text.replace(/<blockquote>/,`<blockquote style="color:green;font-style:italic">`);
+              }
+              /*
+              text = message.replace(new RegExp('\r?\n','g'), '<br />');
+              if (text.indexOf('>')==0){
+                let spot =text.indexOf(">")
+                let spot2 = text.indexOf("<br /><br />");
+                console.log("string bits",spot,spot2);
+                let quoteName = text.substring()
+              }
+              */
             }
             let messageElement=document.createElement('div');
             messageElement.class="message";
@@ -225,7 +245,14 @@ async function register ({ registerHook, peertubeHelpers }) {
       }
       if (matrixSettingsButton){
         matrixSettingsButton.onclick = async function () {
-            console.log("this",this);
+          console.log("this",this);
+          let inviteApi = peertubeHelpers.getBaseRouterRoute()+"/sendinvite?room="+roomId+"&user="+encodeURIComponent("@errhead:matrix.org");
+          try {
+            let result = await axios.get(inviteApi);
+            console.log("result",result);
+          } catch (err) {
+            console.log("error sending invite",inviteApi,err);
+          }
 
         }
       }
@@ -315,6 +342,15 @@ async function register ({ registerHook, peertubeHelpers }) {
     }
     }
   })  
+  registerHook({
+    target:   'action:auth-user.logged-out',
+    handler: async () => {
+      console.log("user data for logged in user",client);
+      if (client){
+        client=undefined;
+      }
+    }
+  })
 }
 
 export {
