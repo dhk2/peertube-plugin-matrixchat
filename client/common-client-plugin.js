@@ -254,13 +254,13 @@ async function register ({ registerHook, peertubeHelpers }) {
             console.log("error sending invite",inviteApi,err);
           }
 
+
         }
       }
       if (matrixLinkButton){
         matrixLinkButton.onclick = async function () {
           let roomLink ="https://matrix.to/#/"+roomId;
           window.open(roomLink, '_blank');
-
         }
       }
       if (inputBox){
