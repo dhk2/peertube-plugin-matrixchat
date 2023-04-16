@@ -308,7 +308,7 @@ async function register ({
   }
   async function refreshUserToken(user){
     let manualLogin = {};
-    manualLogin.type="login.password";
+    manualLogin.type="m.login.password";
     manualLogin.identifier = {"type": "m.id.user", "user": user.userId};
     manualLogin.password = user.password;
     let loginApi = homeServer+":8448/_matrix/client/r0/login"
