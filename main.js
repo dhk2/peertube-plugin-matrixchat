@@ -124,6 +124,9 @@ async function register ({
       let matrixUser;
       matrixUser = await storageManager.getData("mu-" + userName);
       console.log("███ returned saved matrix user",userName,matrixUser)
+      if (matrixUser && (matrixUser.baseUrl == "https://undefined" || !matrixUser.userName)){
+        matrixUser = undefined;
+      }
       if (matrixUser){
         if (!matrixUser.password){
           matrixUser.password=password;
@@ -299,7 +302,7 @@ async function register ({
       results = await axios.get(turnServer,headers);
       return true;
     } catch (err) {
-      console.log("███ errored getting turnserver, need to regenerate access token",err,user);
+      console.log("███ errored getting turnserver, need to regenerate access token",user);
       return false;
     }
   }
@@ -310,10 +313,16 @@ async function register ({
     manualLogin.password = user.password;
     let loginApi = homeServer+":8448/_matrix/client/r0/login"
     console.log("███ refresh token data",loginApi,manualLogin);
+    let results,matrixUser
     try {
       results = await axios.post(loginApi,manualLogin);
     } catch (err) {
-      console.log("███ error attempting password logon",manualLogin,err);
+      console.log("███ error attempting password logon",manualLogin);
+      if (err && err.results){
+        console.log(err.results.data);
+      } else {
+        console.log(err);
+      }
     }
     if (results && results.data){
       console.log ("███ results data",results.data);
@@ -325,6 +334,8 @@ async function register ({
       console.log("███ refreshed matrix user ",matrixUser);
       return matrixUser;
     }
+    console.log("failed to get refresh logon",user,matrixUser);
+    return undefined;
   }
   async function getGuestUser(){
     let guestRegistrationApi = homeServer+"/_matrix/client/r0/register?kind=guest";
