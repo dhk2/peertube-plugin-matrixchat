@@ -146,14 +146,25 @@ async function register ({
             console.log("███ failed to refresh user");
           }
         }
+      } else {
+        console.log("checking to see if user exists",userName)
+        let testUser= {};
+        testUser.baseUrl = homeServer;
+        testUser.userId = userName;
+        testUser.password=password;
+        matrixUser = refreshUserToken(testUser);
+        if (matrixUser){
+          console.log("matrix user",matrixUser);
+          storageManager.storeData("mu-"+userName,matrixUser);
+          return res.status(200).send(matrixUser);
+        } else {
+          console.log("unable to refresh token for",userName);
+        }
       }
       let newUser = await sharedCreateUser(user);
       if (newUser){
-
-
         return res.status(200).send(newUser);
       }
-
     }
     let anonUserObject ={
       baseUrl: homeServer,
@@ -353,7 +364,7 @@ async function register ({
       */
   }
   async function sharedCreateUser(user){
-    console.log("███ user info",user.dataValues);
+    console.log("███ creating user, user info",user.dataValues.username);
     let nonce;
     let nonceRequest=homeServer+"/_synapse/admin/v1/register"
     try {
