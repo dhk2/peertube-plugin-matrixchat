@@ -327,7 +327,11 @@ async function register ({
     if (results && results.data){
       console.log ("███ results data",results.data);
       matrixUser= {};
-      matrixUser.baseUrl = "https://"+results.data.home_server;
+      if (results.data.home_server){
+        matrixUser.baseUrl = "https://"+results.data.home_server;
+      } else {
+        matrixUser.baseUrl = homeServer;
+      }
       matrixUser.userId = results.data.user_id;
       matrixUser.accessToken = results.data.access_token;
       matrixUser.password = results.data.password;
