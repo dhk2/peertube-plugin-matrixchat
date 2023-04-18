@@ -104,10 +104,11 @@ async function register ({
   let autoUser = await settingsManager.getSetting("matrix-user-auto");
   let autoRoom = await settingsManager.getSetting("matrix-room-auto");
   let enableAnon = await settingsManager.getSetting("matrix-anon-allow");
+  let parts = homeServer.split("/");
+  console.log("parts:",parts);
+  let matrixDomain = parts[2];
   if (anonUser && anonUser.indexOf(':')<1){
-    let parts = homeServer.split("/");
-    console.log("parts:",parts);
-    anonUser=anonUser+":"+parts[2];
+    anonUser=anonUser+":"+matrixDomain;
   }
   if (anonUser && anonUser.indexOf('@')!=0){
     anonUser='@'+ anonUser
@@ -124,7 +125,7 @@ async function register ({
       let matrixUser;
       matrixUser = await storageManager.getData("mu-" + userName);
       console.log("███ returned saved matrix user",userName,matrixUser)
-      if (matrixUser && (matrixUser.baseUrl == "https://undefined" || !matrixUser.userName)){
+      if (matrixUser && (matrixUser.baseUrl == "https://undefined" || !matrixUser.userId)){
         matrixUser = undefined;
       }
       if (matrixUser){
@@ -155,7 +156,7 @@ async function register ({
         testUser.baseUrl = homeServer;
         testUser.userId = userName;
         testUser.password=password;
-        matrixUser = refreshUserToken(testUser);
+        matrixUser = await refreshUserToken(testUser);
         if (matrixUser){
           console.log("matrix user",matrixUser);
           storageManager.storeData("mu-"+userName,matrixUser);
@@ -164,9 +165,11 @@ async function register ({
           console.log("unable to refresh token for",userName);
         }
       }
-      let newUser = await sharedCreateUser(user);
-      if (newUser){
-        return res.status(200).send(newUser);
+      if (autoUser){
+        let newUser = await sharedCreateUser(user);
+        if (newUser){
+          return res.status(200).send(newUser);
+        }
       }
     }
     let anonUserObject ={
@@ -181,10 +184,13 @@ async function register ({
     }
     console.log("███ default matrix user",hack,anonUserObject)
     //return res.status(200).send(anonUserObject);
-    return res.status(200).send(hack);
+    if (enableAnon){
+       return res.status(200).send(hack);
+    }
+    return res.status(400).send();
   })
   router.use('/getchatroom', async (req, res) => {
-    console.log("███ getting chatroom ███",req);
+    console.log("███ getting chatroom ███",req.query);
     //return res.status(200).send("!ULdntgxAgvbNuXZQGu:matrix.org");
     let channel = req.query.channel;
     if (channel=="live@jupiter.tube"){
@@ -205,6 +211,7 @@ async function register ({
         console.log("███ returning", customChat.toString(), "for", channel);
         return res.status(200).send(customChat.data);
       }
+      console.log("failed to get remote room id");
       return res.status(400).send();
     }
     let chatRoom;
@@ -219,7 +226,25 @@ async function register ({
     if (chatRoom) {
       return res.status(200).send(chatRoom);
     }
-    if (channel){
+    if (channel && autoRoom){
+      let roomAlias = encodeURIComponent("#p2ptube-"+channel+":"+matrixDomain);
+      let roomCheckApi = homeServer+'/_matrix/client/v3/directory/room/'+roomAlias;
+      let roomCheckData;
+      try {
+        roomCheckData = await axios.get(roomCheckApi);
+        if (roomCheckData){
+          if (roomCheckData.data){
+            console.log("███ room found for default room alias",roomCheckApi,roomCheckData);
+            let configureResult = await storageManager.storeData("matrix" + "-" + channel, roomCheckData.data.room_id);
+            //console.log("███ configured the new room",configureResult);
+            return res.status(200).send(roomCheckData.data.room_id);
+          }
+        }
+      } catch(err) {
+        console.log("███ hard error trying to get room by alias",err,roomCheckApi);
+      }
+      console.log("███ no chat room found with default alias, creating new room")
+
       let createRoomApi = homeServer+":8448/_matrix/client/r0/createRoom?access_token="+adminToken;
       let roomData = {};
       roomData.room_alias_name = "p2ptube-"+channel
@@ -256,19 +281,36 @@ async function register ({
         console.log("███ unable to create chatroom for █",channel,"█",createRoomApi,"█",roomData,"█",err);
       }
       //return res.status(400).send();
+      //return basic devops room
       return res.status(200).send("!ULdntgxAgvbNuXZQGu:matrix.org");
     }
   })
   router.use('/setchatroom', async (req, res) => {
     console.log("███setting chatroom", req.query);
+    let user = await peertubeHelpers.user.getAuthUser(res);
+    console.log("user attempting to set room id ", user.dataValues.username);
+    console.log(user.dataValues.adminFlags);
     let channel = req.query.channel;
     let chatroom = req.query.chatroom;
-    let parts = channel.split('@');
-    if (parts.length > 1) {
-      console.log("███ unable to configure chatroom for remote channel",channel);
-      return res.status(503).send();
+    if (chatroom.substring(0,1) == "#"){
+      let roomAlias = encodeURIComponent(chatroom);
+      let roomCheckApi = homeServer+'/_matrix/client/v3/directory/room/'+roomAlias;
+      let roomCheckData;
+      try {
+        roomCheckData = await axios.get(roomCheckApi);
+        if (roomCheckData){
+          if (roomCheckData.data){
+            console.log("███ room found for default room alias",roomCheckApi,roomCheckData);
+            let configureResult = await storageManager.storeData("matrix" + "-" + channel, roomCheckData.data.room_id);
+            //console.log("███ configured the new room",configureResult);
+            return res.status(200).send(roomCheckData.data.room_id);
+          }
+        }
+      } catch(err) {
+        console.log("███ hard error trying to get room by alias",err,roomCheckApi);
+      }
     }
-    if (channel) {
+    if (channel && chatroom) {
       try {
         await storageManager.storeData("matrix" + "-" + channel, chatroom);
         return res.status(200).send(chatroom);
