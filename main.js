@@ -248,7 +248,7 @@ async function register ({
     }
     console.log("███ chat room for", channel, "is",chatRoom);
     if (chatRoom) {
-      console.log("███",user);
+      //console.log("███",user);
       if (user && user.dataValues && user.dataValues.role==0){
         let fixedChatRoom = encodeURIComponent(chatRoom);
         let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
@@ -258,7 +258,7 @@ async function register ({
         try {
           console.log("███ set admin",setAdminApi,matrixUser,adminBody,headers);
           let madeAdmin= await axios.post(setAdminApi,adminBody,headers)
-          console.log("███ made admin",madeAdmin);
+          //console.log("███ made admin",madeAdmin);
         } catch (err){
           console.log("failed to make admin",err);
         }
