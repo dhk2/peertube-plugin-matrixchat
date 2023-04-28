@@ -12,7 +12,7 @@ async function register ({ registerHook, peertubeHelpers }) {
   console.log('Matrix Chat Initializing');
   let matrixUser,client;
   const basePath = await peertubeHelpers.getBaseRouterRoute();
-
+  const { notifier } = peertubeHelpers
   registerHook({
     target:   'action:auth-user.information-loaded',
     handler: async ({user}) => {
@@ -31,12 +31,12 @@ async function register ({ registerHook, peertubeHelpers }) {
         }
       }
       if (!client){
-        let userApi = peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser?account=errhead";
+        let userApi = await peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser?account=errhead";
         console.log("api call to get matrix user data",userApi);
         try {
           let userData =await axios.get(userApi, { headers: await peertubeHelpers.getAuthHeader() });
           matrixUser = userData.data;
-          console.log("user data ",matrixUser);
+          console.log("matrix user data ",matrixUser);
           if (matrixUser){
             client = sdk.createClient(matrixUser);
           }
@@ -53,11 +53,12 @@ async function register ({ registerHook, peertubeHelpers }) {
           console.log("matrix state",state); // state will be 'PREPARED' when the client is ready to use
           let rooms = await client.getJoinedRooms();
           console.log("rooms user is a member of",rooms);
-          console.log("client settings",client.avatar_url);
+          let matrixAvatar = await client.getProfileInfo(matrixUser.userId,'avatar_url');
+          console.log("client settings",matrixAvatar);
           console.log("peertube settings",user.account.avatars[0]);
           console.log(client,user.account.displayName);
           client.setDisplayName(user.account.displayName);
-          client.setRoomTopic('just testing for error message response');
+          //client.setRoomTopic('just testing for error message response');
           if (user.account.avatars[0]){
             const imageResponse = await axios.get(user.account.avatars[0].path, { responseType: 'arraybuffer' });
             const imageType = imageResponse.headers['content-type'];
@@ -68,7 +69,22 @@ async function register ({ registerHook, peertubeHelpers }) {
             console.log("fixed",client.avatar_url);
 
           }
-          
+          let uuidFromUrl = (window.location.href).split("/").pop();
+          console.log("theoretical video url", uuidFromUrl);
+          let chatAddSpot = document.getElementById('plugin-placeholder-player-next');
+          if (uuidFromUrl.length>20 && chatAddSpot){
+            let videoInfo;
+            try {
+              let videoApi = "/api/v1/videos/"+uuidFromUrl;
+              videoInfo = await axios.get(videoApi);
+            } catch(err) {
+              console.log("error attempting to get channel info",err);
+            }
+            console.log(videoInfo)
+            let channel=videoInfo.data.channel.name;
+            let channelDisplay = videoInfo.data.channel.displayName;
+            let chatCreateResult = createChat(channel,channelDisplay);
+          }
         })
       }
     }
@@ -80,128 +96,196 @@ async function register ({ registerHook, peertubeHelpers }) {
       if (test){
         return;
       }
-      let roomId,maxHeight,userToken;
+      
       console.log("video metadata",video);
-      let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+video.byVideoChannel;
-      console.log("room request api",chatApi);
+      let chatRoomResult = createChat(video.byVideoChannel,video.channel.displayName);
+    }
+  })  
+  registerHook({
+    target:   'action:auth-user.logged-out',
+    handler: async () => {
+      console.log("user data for logged in user",client);
+      if (client){
+        client=undefined;
+      }
+    }
+  })
+  registerHook({
+    target: 'action:video-channel-update.video-channel.loaded',
+    handler: async () => {
+      let channelUpdate = document.getElementsByClassName("form-group");
+      let channel = (window.location.href).split("/").pop();
+      let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+channel;
+      let roomId;
+      console.log("matrix chatroom request api",chatApi);
       try {
-        let roomIdData =await axios.get(chatApi);
+        let roomIdData =await axios.get(chatApi, { headers: await peertubeHelpers.getAuthHeader() });
         roomId = roomIdData.data;
-        console.log("chatroom id ",roomId);
+        console.log("matrix chatroom id ",roomId);
       } catch (err){
-        console.log("error attempting to fetch chat room id",chatApi,err);
+        console.log("error attempting to fetch matrix chat room id",chatApi,err);
       }
-      
-      if (!client && roomId && !peertubeHelpers.isLoggedIn()){
-        console.log("creating guest user data",client,roomId,peertubeHelpers.isLoggedIn())
-        let guestUserApi = peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser?account=guest";
-        console.log(guestUserApi);
-        try {
-          let userData =await axios.get(guestUserApi);
-          matrixUser = userData.data;
-          console.log("user data ",matrixUser);
-          if (matrixUser){
-            client = sdk.createClient(matrixUser);
+
+      let panel = document.createElement('div');
+      panel.setAttribute('class', 'matrix-panel');
+      panel.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms')
+      let html = "Set matrix chat room ID, can be configured by specifying room ID (!2tP8BSJVwZSfeEF5:invidious.peertube.biz) or alias (#p2ptube-dbz:invidious.peertube.biz)";
+      html = html + "<br><b> Matrix Chatroom ID:</b>";
+      html = html + `<input STYLE="color: #000000; background-color: #ffffff;"type="text" id="matrix-chatroom" name="Matrix-chatroom" value="` + roomId + `">`
+      html = html + `<button type="button" id="update-matrix-chat" name="update-matrix-chat" class="peertube-button orange-button ng-star-inserted">Save</button>`
+
+      console.log("matrix html",html);
+      panel.innerHTML = html;
+      channelUpdate[0].appendChild(panel);
+      let chatRoom = document.getElementById("matrix-chatroom");
+      let chatButton = document.getElementById("update-matrix-chat");
+      if (chatButton) {
+        chatButton.onclick = async function () {
+          let chatApi = basePath + "/setchatroom?channel=" + channel + "&chatroom=" + encodeURIComponent(chatRoom.value);
+          console.log("chat api",chatApi);
+          try {
+            let roomResult = await axios.get(chatApi, { headers: await peertubeHelpers.getAuthHeader() });
+            console.log(roomResult);
+            chatRoom.value=roomResult.data;
+            notifier.success("successfully set chatroom to " + roomResult.data);
+          } catch (err) {
+            let errorMessage="unspecified error ";
+            if (err && err.response){
+              errorMessage = err.response.data+" ";
+            }
+            notifier.error(errorMessage+chatRoom.value);
+            console.log("error attempting to set chatroom", errorMessage, channel, chatRoom.value);
           }
-        } catch (err){
-          console.log("error attempting to login",userApi,matrixUser,err);
-        }
-        if (client){
-          client.startClient();
-          client.once('sync', async function(state, prevState, res) {
-            console.log("matrix state",state); // state will be 'PREPARED' when the client is ready to use
-            let rooms = await client.getJoinedRooms();
-            console.log("rooms user is a member of",rooms);
-          });
-         
         }
       }
-      //userToken = 'lVZqe6L9S5UVowl5kn8t-AknuUjaXEyJg0H8HI3Kh3Q'
-      console.log("111111",peertubeHelpers.getBaseStaticRoute(),peertubeHelpers.getBaseRouterRoute());
-      console.log("2222222",peertubeHelpers.getBasePluginClientPath(),peertubeHelpers.isLoggedIn())
-      console.log("3333333",peertubeHelpers.getAuthHeader);
-      console.log("44444",roomId,client);
-      let addSpot = document.getElementById('plugin-placeholder-player-next');
-
-      if (client && roomId) {
-        console.log("creating chat room html");
-        let buttonHTML = `<label id ="matrixchatlabel" style="color:white;">`+video.channel.displayName+` chat</label>`;
-        buttonHTML = buttonHTML + ` <button id = "closematrixchat"  class="orange-button ng-star-inserted" style="float:right;" title="close chat panel">` + "❌" + `</button>`
-
-        buttonHTML = buttonHTML + ` <button id = "matrixsettingsbutton"  class="orange-button ng-star-inserted" style="float:right;" title="Matrix Chat settings">` + "⚙" + `</button>`
-        buttonHTML = buttonHTML + ` <button id = "matrixlinkbutton"  class="orange-button ng-star-inserted" style="float:right;" title="open chat in element">` + "🔗" + `</button>`
-        buttonHTML = buttonHTML + ` <button id = "openmatrixchat"  class="orange-button ng-star-inserted" style="float:right;" title="open chat panel">` +video.channel.displayName+ " chat" + `</button>`
-
-        let titleBar=document.createElement('span');
-        titleBar.innerHTML = buttonHTML;
-        titleBar.style.display="block";
-        
-        let newContainer = document.createElement('div');
-        newContainer.setAttribute('id','matrix-container')
-        //newContainer.setAttribute('hidden', 'true');
-        addSpot.append(newContainer)
-        //addSpot.append()
-
-        var container = document.getElementById('matrix-container')
-
-        if (!container) {
-          logger.error('Cant find matrix chat container.');
-          return;
+    }
+  })
+  async function createChat(channelName,channelDisplay){
+    let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+channelName;
+    let roomId,maxHeight,userToken;
+    console.log("room request api",chatApi);
+    try {
+      let roomIdData =await axios.get(chatApi,{ headers: await peertubeHelpers.getAuthHeader() });
+      roomId = roomIdData.data;
+      console.log("matrix chatroom id ",roomId);
+    } catch (err){
+      console.log("error attempting to fetch matrix chat room id",chatApi,err);
+    }
+    
+    if (!client && roomId && !peertubeHelpers.isLoggedIn()){
+      console.log("creating guest user data",client,roomId,peertubeHelpers.isLoggedIn())
+      let guestUserApi = peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser?account=guest";
+      console.log(guestUserApi);
+      try {
+        let userData =await axios.get(guestUserApi);
+        matrixUser = userData.data;
+        console.log("matrix guest user data ",matrixUser);
+        if (matrixUser){
+          client = sdk.createClient(matrixUser);
         }
-        container.appendChild(titleBar);
+      } catch (err){
+        console.log("error attempting to login tom matrix",userApi,matrixUser,err);
+      }
+      if (client){
+        client.startClient();
+        client.once('sync', async function(state, prevState, res) {
+          console.log("Matrix state",state); // state will be 'PREPARED' when the client is ready to use
+          let rooms = await client.getJoinedRooms();
+          console.log("Matrix rooms user is a member of",rooms);
+        });
+      }
+    }
+    //userToken = 'lVZqe6L9S5UVowl5kn8t-AknuUjaXEyJg0H8HI3Kh3Q'
+    //console.log("111111",await peertubeHelpers.getBaseStaticRoute(),peertubeHelpers.getBaseRouterRoute());
+    //console.log("2222222",await peertubeHelpers.getBasePluginClientPath(),peertubeHelpers.isLoggedIn())
+    //console.log("3333333",await peertubeHelpers.getAuthHeader);
+    //console.log("44444",roomId,client);
+    let addSpot = document.getElementById('plugin-placeholder-player-next');
+    if (client && roomId && addSpot) {
+      console.log("joining room",roomId);
+      try {
+        await client.joinRoom(roomId)
+      } catch (err){
+        console.log("failed joining room",roomId,err);
+        return;
+      }
+      console.log("creating chat room html");
+      let buttonHTML = `<label id ="matrixchatlabel" style="color:white;">`+channelDisplay+` chat</label>`;
+      buttonHTML = buttonHTML + ` <button id = "closematrixchat"  class="orange-button ng-star-inserted" style="float:right;" title="close chat panel">` + "❌" + `</button>`
+      buttonHTML = buttonHTML + ` <button id = "matrixsettingsbutton"  class="orange-button ng-star-inserted" style="float:right;" title="Matrix Chat settings">` + "⚙" + `</button>`
+      buttonHTML = buttonHTML + ` <button id = "matrixlinkbutton"  class="orange-button ng-star-inserted" style="float:right;" title="open chat in element">` + "🔗" + `</button>`
+      buttonHTML = buttonHTML + ` <button id = "openmatrixchat"  class="orange-button ng-star-inserted" style="float:right;" title="open chat panel">` +channelDisplay+ " chat" + `</button>`
+      let titleBar=document.createElement('span');
+      titleBar.innerHTML = buttonHTML;
+      titleBar.style.display="block";
+      var test = document.getElementById('matrix-container');
+      if (test){
+        return;
+      }
+      let newContainer = document.createElement('div');
+      newContainer.setAttribute('id','matrix-container')
+      //newContainer.setAttribute('hidden', 'true');
+      addSpot.append(newContainer)
+      //addSpot.append()
+
+      var container =document.getElementById('matrix-container')
+
+      if (!container) {
+        logger.error('Cant find matrix chat container.');
+        return;
+      }
+      container.appendChild(titleBar);
 
 
-        let chatWindow=document.createElement('span');
-        chatWindow.setAttribute('id', 'matrix-chats')
-        chatWindow.style.height='100%';
-        chatWindow.style.width='100%';
-        chatWindow.style.color='white';
-        chatWindow.style.overflow = "auto";
-        chatWindow.style.display = "flex";
-        //chatWindow.style.resize = "both";
-        chatWindow.style.flexDirection = "column-reverse";
-        //chatWindow.style.text="000000";
-       //chatWindow.innerHTML=`Matrix Chat`
-        container.appendChild(chatWindow);
-        let chatInput = document.createElement('div');
-        chatInput.style.display="flex";
-        chatInput.style.flexDirection="row";
-        chatInput.innerHTML =`<input type="text" id="new-message" style="flex:1"/></div>`
-      
-        container.appendChild(chatInput);
-        let videoHook=document.getElementById('videojs-wrapper');
-        //console.log("vidoplayer data",videoHook);
-        maxHeight = videoHook.offsetHeight
-        container.style.height = maxHeight+'px';
-        container.style.width = "100%";
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.overflow = "auto";
-        container.style.resize = "both";
-      
-        let chatMessages=document.getElementById("matrix-chats");
-        let sendButton = document.getElementById('send-button');
-        let inputBox = document.getElementById('new-message');
-        let matrixSettingsButton = document.getElementById('matrixsettingsbutton');
-        let matrixLinkButton = document.getElementById('matrixlinkbutton');
-        let closeMatrixChat = document.getElementById('closematrixchat');
-        let openMatrixChat = document.getElementById('openmatrixchat');
-        openMatrixChat.hidden=true;
-        let matrixChatLabel = document.getElementById('matrixchatlabel');
-        let previousHeight = container.offsetHeight;
-        if (client){
-          await client.joinRoom(roomId)
-          console.log("joining room",roomId);
-          client.on("Room.timeline", async function(event, room, toStartOfTimeline) {
-            console.log("room.timeline event",event,"now the event event",event.event,"now the content",event.event.content);
-            //if (room && room.roomId !="!ULdntgxAgvbNuXZQGu:matrix.org"){
-              if (room && room.roomId !=roomId){
-               // console.log("skipping",room.roomId,roomId);
-                return;
-              }
-            let message = event.event.content.body;
-            let text;
-            if (message){
+      let chatWindow=document.createElement('span');
+      chatWindow.setAttribute('id', 'matrix-chats')
+      chatWindow.style.height='100%';
+      chatWindow.style.width='100%';
+      chatWindow.style.color='white';
+      chatWindow.style.overflow = "auto";
+      chatWindow.style.display = "flex";
+      //chatWindow.style.resize = "both";
+      chatWindow.style.flexDirection = "column-reverse";
+      //chatWindow.style.text="000000";
+     //chatWindow.innerHTML=`Matrix Chat`
+      container.appendChild(chatWindow);
+      let chatInput = document.createElement('div');
+      chatInput.style.display="flex";
+      chatInput.style.flexDirection="row";
+      chatInput.innerHTML =`<input type="text" id="new-message" style="flex:1"/></div>`
+    
+      container.appendChild(chatInput);
+      let videoHook=document.getElementById('videojs-wrapper');
+      //console.log("vidoplayer data",videoHook);
+      maxHeight = videoHook.offsetHeight
+      container.style.height = maxHeight+'px';
+      container.style.width = "100%";
+      container.style.display = "flex";
+      container.style.flexDirection = "column";
+      container.style.overflow = "auto";
+      container.style.resize = "both";
+    
+      let chatMessages=document.getElementById("matrix-chats");
+      let sendButton = document.getElementById('send-button');
+      let inputBox = document.getElementById('new-message');
+      let matrixSettingsButton = document.getElementById('matrixsettingsbutton');
+      let matrixLinkButton = document.getElementById('matrixlinkbutton');
+      let closeMatrixChat = document.getElementById('closematrixchat');
+      let openMatrixChat = document.getElementById('openmatrixchat');
+      openMatrixChat.hidden=true;
+      let matrixChatLabel = document.getElementById('matrixchatlabel');
+      let previousHeight = container.offsetHeight;
+      if (client){
+
+        client.on("Room.timeline", async function(event, room, toStartOfTimeline) {
+          //console.log("room.timeline event",event,"now the event event",event.event,"now the content",event.event.content);
+          if (room && room.roomId !=roomId){
+            // console.log("skipping",room.roomId,roomId);
+            return;
+          }
+          let message = event.event.content.body;
+          let text;
+          if (message){
             let profile = await client.getProfileInfo(event.sender.userId);
             let avatar = client.mxcUrlToHttp(profile.avatar_url,8,8, 'scale');
             //console.log("avatar info",avatar, profile.avatar_url, );
@@ -241,9 +325,7 @@ async function register ({ registerHook, peertubeHelpers }) {
               chatMessages.style.Height = maxHeight+'px';
             }
           }
-       });
-      } else {
-        console.log ("not creating room html",roomId,client);
+        });
       }
       if (matrixSettingsButton){
         matrixSettingsButton.onclick = async function () {
@@ -255,8 +337,8 @@ async function register ({ registerHook, peertubeHelpers }) {
           } catch (err) {
             console.log("error sending invite",inviteApi,err);
           }
-
-
+  
+  
         }
       }
       if (matrixLinkButton){
@@ -341,60 +423,11 @@ async function register ({ registerHook, peertubeHelpers }) {
           this.hidden=true;
         }
       }
+    } else {
+      console.log ("not creating room html",roomId,client);
     }
-    }
-  })  
-  registerHook({
-    target:   'action:auth-user.logged-out',
-    handler: async () => {
-      console.log("user data for logged in user",client);
-      if (client){
-        client=undefined;
-      }
-    }
-  })
-  registerHook({
-    target: 'action:video-channel-update.video-channel.loaded',
-    handler: async () => {
-      let channelUpdate = document.getElementsByClassName("form-group");
-      let channel = (window.location.href).split("/").pop();
-      let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+channel;
-      let roomId;
-      console.log("matrix chatroom request api",chatApi);
-      try {
-        let roomIdData =await axios.get(chatApi, { headers: await peertubeHelpers.getAuthHeader() });
-        roomId = roomIdData.data;
-        console.log("matrix chatroom id ",roomId);
-      } catch (err){
-        console.log("error attempting to fetch matrix chat room id",chatApi,err);
-      }
 
-      let panel = document.createElement('div');
-      panel.setAttribute('class', 'matrix-panel');
-      panel.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms')
-      let html = "<br> Matrix Chatroom ID:";
-      html = html + `<input STYLE="color: #000000; background-color: #ffffff;"type="text" id="matrix-chatroom" name="Matrix-chatroom" value="` + roomId + `">`
-      html = html + `<button type="button" id="update-matrix-chat" name="update-matrix-chat" class="peertube-button orange-button ng-star-inserted">Save</button>`
-
-      console.log("matrix html",html);
-      panel.innerHTML = html;
-      channelUpdate[0].appendChild(panel);
-      let chatRoom = document.getElementById("matrix-chatroom");
-      let chatButton = document.getElementById("update-matrix-chat");
-      if (chatButton) {
-        chatButton.onclick = async function () {
-          let chatApi = basePath + "/setchatroom?channel=" + channel + "&chatroom=" + encodeURIComponent(chatRoom.value);
-          console.log("chat api",chatApi);
-          try {
-            await axios.get(chatApi, { headers: await peertubeHelpers.getAuthHeader() });
-          } catch (err) {
-            console.log("error attempting to set chatroom", err, channel, chatRoom);
-          }
-          chatButton.innerText = "Saved!";
-        }
-      }
-    }
-  })
+  }
 }
 
 export {

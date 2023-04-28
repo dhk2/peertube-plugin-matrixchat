@@ -120,7 +120,8 @@ async function register ({
     console.log("███ getting matrix user",req.query);
     let user = await peertubeHelpers.user.getAuthUser(res);
     //console.log("███ returned user",user);
-    if (user) {
+    if (user && user.dataValues) {
+      console.log("███ got authorized peertube user",user.dataValues.username);
       let userName = user.dataValues.username;
       let matrixUser;
       matrixUser = await storageManager.getData("mu-" + userName);
@@ -134,7 +135,7 @@ async function register ({
         }
         console.log("███ saved matrix user",userName,matrixUser);
         if (await checkTokenValid(matrixUser)){
-          console.log("checked user token passes",matrixUser);
+          console.log("███ checked user token passes",matrixUser);
           return res.status(200).send(matrixUser);
         } else {
           console.log("███ refreshing user",matrixUser);
@@ -147,52 +148,75 @@ async function register ({
               return res.status(200).send(matrixUser);
             }
           } else {
-            console.log("███ failed to refresh user");
+            console.log("███ failed to refresh user",matrixUser);
           }
         }
       } else {
-        console.log("checking to see if user exists",userName)
+        console.log("███ checking to see if user exists",userName)
         let testUser= {};
         testUser.baseUrl = homeServer;
         testUser.userId = userName;
         testUser.password=password;
         matrixUser = await refreshUserToken(testUser);
         if (matrixUser){
-          console.log("matrix user",matrixUser);
+          console.log("███ storing and returning matrix user",matrixUser);
           storageManager.storeData("mu-"+userName,matrixUser);
           return res.status(200).send(matrixUser);
         } else {
-          console.log("unable to refresh token for",userName);
+          console.log("███ unable to refresh token for",userName);
         }
       }
       if (autoUser){
-        let newUser = await sharedCreateUser(user);
+        let newUser = await sharedCreateUser(userName);
         if (newUser){
+          console.log("███ created new user with shared secret",userName,newUser);
+          storageManager.storeData("mu-"+userName,newUser);
           return res.status(200).send(newUser);
         }
+        newUser = await createUser(userName);
+        if (newUser){
+          console.log("███ created new user",userName,newUser);
+          storageManager.storeData("mu-"+userName,newUser);
+          return res.status(200).send(newUser);
+        }       
+      } else {
+        console.log("no existing user account and new account creation disabled",userName);
+        return;
       }
     }
-    let anonUserObject ={
-      baseUrl: homeServer,
-      accessToken: anonToken,
-      userId: anonUser,
-    }
-    let hack ={
-      baseUrl: "https://matrix.peertube.support",
-      accessToken: "syt_YW5vbg_nwFywLZphmgGoMdPHrJM_2MUpk2",
-      userId: "@anon:matrix.peertube.support"
-    }
-    console.log("███ default matrix user",hack,anonUserObject)
-    //return res.status(200).send(anonUserObject);
     if (enableAnon){
-       return res.status(200).send(hack);
+      console.log("no authorized user, sending anon user");
+      let anonUserObject ={
+        baseUrl: homeServer,
+        accessToken: anonToken,
+        userId: anonUser,
+      }
+      let hack ={
+        baseUrl: "https://matrix.peertube.support",
+        accessToken: "syt_YW5vbg_nwFywLZphmgGoMdPHrJM_2MUpk2",
+        userId: "@anon:matrix.peertube.support"
+      }
+      console.log("███ default matrix user",hack,anonUserObject)
+      //return res.status(200).send(anonUserObject);
+      
+        console.log("███ returning anon user");
+        return res.status(200).send(hack);
     }
+    console.log("███ anon user disabled, returning 400 error");
     return res.status(400).send();
   })
   router.use('/getchatroom', async (req, res) => {
     console.log("███ getting chatroom ███",req.query);
+    if (!req.query.channel){
+      return res.status(400).send();
+    }
     //return res.status(200).send("!ULdntgxAgvbNuXZQGu:matrix.org");
+    let user = await peertubeHelpers.user.getAuthUser(res);
+    if (user){
+      console.log("███ authorized user",user.dataValues.username);
+    }
     let channel = req.query.channel;
+    //hack for crossnetwork alpha testing
     if (channel=="live@jupiter.tube"){
       return res.status(200).send(`!gJYEKNllaubNlNkFIj:jupiterbroadcasting.com`);
     }
@@ -211,7 +235,7 @@ async function register ({
         console.log("███ returning", customChat.toString(), "for", channel);
         return res.status(200).send(customChat.data);
       }
-      console.log("failed to get remote room id");
+      console.log("███ failed to get remote room id");
       return res.status(400).send();
     }
     let chatRoom;
@@ -224,6 +248,23 @@ async function register ({
     }
     console.log("███ chat room for", channel, "is",chatRoom);
     if (chatRoom) {
+      console.log("███",user);
+      if (user && user.dataValues && user.dataValues.role==0){
+        let fixedChatRoom = encodeURIComponent(chatRoom);
+        let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
+        let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
+        let adminBody = { "user_id": matrixUser.userId};
+        let headers = {headers: {Authorization: 'Bearer ' + adminToken}}
+        try {
+          console.log("███ set admin",setAdminApi,matrixUser,adminBody,headers);
+          let madeAdmin= await axios.post(setAdminApi,adminBody,headers)
+          console.log("███ made admin",madeAdmin);
+        } catch (err){
+          console.log("failed to make admin",err);
+        }
+      } else {
+        console.log("███",user);
+      }
       return res.status(200).send(chatRoom);
     }
     if (channel && autoRoom){
@@ -288,7 +329,11 @@ async function register ({
   router.use('/setchatroom', async (req, res) => {
     console.log("███setting chatroom", req.query);
     let user = await peertubeHelpers.user.getAuthUser(res);
-    console.log("user attempting to set room id ", user.dataValues.username);
+    if (!user){
+      console.log("no authorized user",req.query)
+        return res.status(400).send();
+    }
+    console.log("███ user attempting to set room id ", user.dataValues.username);
     console.log(user.dataValues.adminFlags);
     let channel = req.query.channel;
     let chatroom = req.query.chatroom;
@@ -300,14 +345,15 @@ async function register ({
         roomCheckData = await axios.get(roomCheckApi);
         if (roomCheckData){
           if (roomCheckData.data){
-            console.log("███ room found for default room alias",roomCheckApi,roomCheckData);
+            console.log("███ room found for default room alias",roomCheckApi,roomCheckData.data);
             let configureResult = await storageManager.storeData("matrix" + "-" + channel, roomCheckData.data.room_id);
             //console.log("███ configured the new room",configureResult);
             return res.status(200).send(roomCheckData.data.room_id);
           }
         }
       } catch(err) {
-        console.log("███ hard error trying to get room by alias",err,roomCheckApi);
+        console.log("███ hard error trying to get room by alias",err.code,roomCheckApi);
+       // return res.status(400).send("error setting chatroom");
       }
     }
     if (channel && chatroom) {
@@ -315,15 +361,19 @@ async function register ({
         await storageManager.storeData("matrix" + "-" + channel, chatroom);
         return res.status(200).send(chatroom);
       } catch (err) {
-        console.log("███ error getting chatroom", channel,chatroom);
+        console.log("███ error getting chatroom", channel,chatroom,err);
       }
     }
-    return res.status(400).send();
+    return res.status(400).send("error setting chatroom");
   })
   router.use('/sendinvite', async (req, res) => {
     console.log("███ Sending an invite", req.query);
     let channel = req.query.room;
     let target = req.query.user;
+    if (!channel || !target){
+      console.log("███ malformed invite request",req.query);
+       return res.status(400).send();
+    }
     let userJson = {user_id: target};
     let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(channel)+`/invite`
     let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
@@ -344,7 +394,7 @@ async function register ({
       results = await axios.get(turnServer,headers);
       return true;
     } catch (err) {
-      console.log("███ errored getting turnserver, need to regenerate access token",user);
+      console.log("███ errored getting turnserver, need to regenerate access token",user,err);
       return false;
     }
   }
@@ -361,9 +411,9 @@ async function register ({
     } catch (err) {
       console.log("███ error attempting password logon",manualLogin);
       if (err && err.results){
-        console.log(err.results.data);
+        console.log("err results data",err.results.data);
       } else {
-        console.log(err);
+        console.log("err results",err);
       }
     }
     if (results && results.data){
@@ -400,11 +450,11 @@ async function register ({
     }
     return;
   }
-  async function adminCreateUser(user){
-      /*
-      let newUser = {"username":userName, "password":password, "auth": {"type":"m.login.dummy"}};
+  async function createUser(user){
+    
+      let newUser = {"username":user, "password":password, "auth": {"type":"m.login.dummy"}};
       let newUserApi= homeServer+":8448/_matrix/client/r0/register";
-      console.log("███ attempting to create matrix user",newUser,newUserApi);
+      console.log("███ attempting to create matrix user without secret",newUser,newUserApi);
       try {
         let matrixUserData = await axios.post(newUserApi,newUser);
         matrixUser= {};
@@ -412,22 +462,22 @@ async function register ({
         matrixUser.userId = matrixUserData.data.user_id;
         matrixUser.accessToken = matrixUserData.data.access_token;
         matrixUser.password = password;
-        console.log("███ new matrix user ",matrixUser);
-        storageManager.storeData("mu-"+userName,matrixUser);
+        console.log("███ new matrix user without secret ",matrixUser);
+        storageManager.storeData("mu-"+user,matrixUser);
         return res.status(200).send(matrixUser);
       } catch(err) {
-        console.log("███ failed registering new account for",userName,newUser,err);
+        console.log("███ failed registering new account without secret for",user,newUser,err);
       }
-      */
+
   }
   async function sharedCreateUser(user){
-    console.log("███ creating user, user info",user.dataValues.username);
+    console.log("███ creating user, user info",user);
     let nonce;
     let nonceRequest=homeServer+"/_synapse/admin/v1/register"
     try {
       let nonceResult = await axios.get(nonceRequest);
       if (nonceResult && nonceResult.data){
-        console.log("███ nonce:",nonceResult.data.nonce);
+        console.log("███ nonce:",nonceResult.data);
         nonce = nonceResult.data.nonce;
       }
     } catch(err) {
@@ -437,10 +487,10 @@ async function register ({
     if (nonce){
       let newUser={};
       newUser.nonce=nonce;
-      newUser.username=user.dataValues.username;
+      newUser.username=user;
       newUser.password=password;
       newUser.admin = false;
-      let macText=nonce+'\0'+user.dataValues.username+'\0'+password+'\0'+"notadmin";
+      let macText=nonce+'\0'+user+'\0'+password+'\0'+"notadmin";
       let macEncodedString = Buffer.from(macText, 'utf-8').toString();
       let mac = hmacsha1(sharedSecret, macEncodedString);
       let mac3 = hmacsha1(sharedSecret,macText);
@@ -460,13 +510,16 @@ async function register ({
           matrixUser.accessToken = createResult.data.access_token;
           matrixUser.password = password;
           console.log("███ new matrix user ",matrixUser);
-          storageManager.storeData("mu-"+user.dataValues.username,matrixUser);
+          storageManager.storeData("mu-"+user,matrixUser);
           return matrixUser;
         }
       } catch(err) {
         console.log("███ error attempting to get nonce",nonceRequest,err);
         return;
       }
+    } else {
+      console.log("███ nonce is undefined",nonceRequest);
+      return;
     }
   }
 }
