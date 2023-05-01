@@ -31,7 +31,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         }
       }
       if (!client){
-        let userApi = await peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser?account=errhead";
+        let userApi = await peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser";
         console.log("api call to get matrix user data",userApi);
         try {
           let userData =await axios.get(userApi, { headers: await peertubeHelpers.getAuthHeader() });
@@ -59,7 +59,7 @@ async function register ({ registerHook, peertubeHelpers }) {
           console.log(client,user.account.displayName);
           client.setDisplayName(user.account.displayName);
           //client.setRoomTopic('just testing for error message response');
-          if (user.account.avatars[0]){
+          if (user.account.avatars[0]  && !matrixAvatar){
             const imageResponse = await axios.get(user.account.avatars[0].path, { responseType: 'arraybuffer' });
             const imageType = imageResponse.headers['content-type'];
             const uploadResponse = await client.uploadContent(imageResponse.data, { rawResponse: false, type: imageType });
@@ -174,7 +174,7 @@ async function register ({ registerHook, peertubeHelpers }) {
     
     if (!client && roomId && !peertubeHelpers.isLoggedIn()){
       console.log("creating guest user data",client,roomId,peertubeHelpers.isLoggedIn())
-      let guestUserApi = peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser?account=guest";
+      let guestUserApi = peertubeHelpers.getBaseRouterRoute()+"/getmatrixuser?anon=true";
       console.log(guestUserApi);
       try {
         let userData =await axios.get(guestUserApi);
@@ -184,7 +184,7 @@ async function register ({ registerHook, peertubeHelpers }) {
           client = sdk.createClient(matrixUser);
         }
       } catch (err){
-        console.log("error attempting to login tom matrix",userApi,matrixUser,err);
+        console.log("error attempting guest login to matrix",guestUserApi,matrixUser);
       }
       if (client){
         client.startClient();
@@ -329,6 +329,7 @@ async function register ({ registerHook, peertubeHelpers }) {
       }
       if (matrixSettingsButton){
         matrixSettingsButton.onclick = async function () {
+          /*
           console.log("this",this);
           let inviteApi = peertubeHelpers.getBaseRouterRoute()+"/sendinvite?room="+roomId+"&user="+encodeURIComponent("@errhead:matrix.org");
           try {
@@ -338,7 +339,8 @@ async function register ({ registerHook, peertubeHelpers }) {
             console.log("error sending invite",inviteApi,err);
           }
   
-  
+  */
+          
         }
       }
       if (matrixLinkButton){

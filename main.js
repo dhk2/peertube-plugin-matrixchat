@@ -2,7 +2,7 @@ const { default: axios } = require("axios");
 const hmacsha1 = require('hmacsha1');
 const CryptoJS = require('crypto-js');
 
-console.log("Registering Plung-in");
+console.log("Registering Plug-in");
 //const nostrtools = require ('nostr-tools');
 
 async function register ({
@@ -62,6 +62,14 @@ async function register ({
     descriptionHTML: 'should be the same as the one configured in synapse/dendrite, if not present open registration will be attempted',
     private: true
   })
+
+  registerSetting({
+    name: 'matrix-prefix',
+    label: 'used with shared Matrix servers to make unique room/user names',
+    type: 'input',
+    descriptionHTML: 'should be the same as the one configured in synapse/dendrite, if not present open registration will be attempted',
+    private: true
+  })
   registerSetting({
     name: 'matrix-always',
     label: 'Enable matrix chat for channels even when not actively livestreaming',
@@ -104,6 +112,7 @@ async function register ({
   let autoUser = await settingsManager.getSetting("matrix-user-auto");
   let autoRoom = await settingsManager.getSetting("matrix-room-auto");
   let enableAnon = await settingsManager.getSetting("matrix-anon-allow");
+  let prefix = await settingsManager.getSetting("matrix-prefix");
   let parts = homeServer.split("/");
   console.log("parts:",parts);
   let matrixDomain = parts[2];
@@ -113,11 +122,22 @@ async function register ({
   if (anonUser && anonUser.indexOf('@')!=0){
     anonUser='@'+ anonUser
   }
+  let anonUserObject ={
+    baseUrl: homeServer,
+    accessToken: anonToken,
+    userId: anonUser
+  }
   let password="cryptodid";
-  console.log ("███ matrix plugin settings",homeServer,sharedSecret,anonUser);
+  console.log ("███ matrix plugin settings",homeServer,prefix,anonUser, enableAnon);
   const router = getRouter();
   router.use('/getmatrixuser', async (req,res) => {
-    console.log("███ getting matrix user",req.query);
+    console.log("███ getting matrix user",req.query,req.query.anon,enableAnon);
+    if (req.query.anon && enableAnon){
+      return res.status(200).send(anonUserObject);
+    }
+    if (req.query.anon){
+      return res.status(400).send("anonymous access not enabled by sysop.");
+    }
     let user = await peertubeHelpers.user.getAuthUser(res);
     //console.log("███ returned user",user);
     if (user && user.dataValues) {
@@ -130,9 +150,11 @@ async function register ({
         matrixUser = undefined;
       }
       if (matrixUser){
+        /*
         if (!matrixUser.password){
           matrixUser.password=password;
         }
+        */
         console.log("███ saved matrix user",userName,matrixUser);
         if (await checkTokenValid(matrixUser)){
           console.log("███ checked user token passes",matrixUser);
@@ -184,6 +206,7 @@ async function register ({
         return;
       }
     }
+    /*
     if (enableAnon){
       console.log("no authorized user, sending anon user");
       let anonUserObject ={
@@ -202,8 +225,9 @@ async function register ({
         console.log("███ returning anon user");
         return res.status(200).send(hack);
     }
-    console.log("███ anon user disabled, returning 400 error");
-    return res.status(400).send();
+    */
+    console.log("███ account not found returning 404 error");
+    return res.status(404).send();
   })
   router.use('/getchatroom', async (req, res) => {
     console.log("███ getting chatroom ███",req.query);
@@ -268,7 +292,7 @@ async function register ({
       return res.status(200).send(chatRoom);
     }
     if (channel && autoRoom){
-      let roomAlias = encodeURIComponent("#p2ptube-"+channel+":"+matrixDomain);
+      let roomAlias = encodeURIComponent("#"+prefix+"-"+channel+":"+matrixDomain);
       let roomCheckApi = homeServer+'/_matrix/client/v3/directory/room/'+roomAlias;
       let roomCheckData;
       try {
@@ -288,7 +312,7 @@ async function register ({
 
       let createRoomApi = homeServer+":8448/_matrix/client/r0/createRoom?access_token="+adminToken;
       let roomData = {};
-      roomData.room_alias_name = "p2ptube-"+channel
+      roomData.room_alias_name = prefix+"-"+channel
       roomData.visibility = "public";
       roomData.preset= "public_chat";
 
@@ -408,6 +432,7 @@ async function register ({
     let results,matrixUser
     try {
       results = await axios.post(loginApi,manualLogin);
+      console.log("███ results",results);
     } catch (err) {
       console.log("███ error attempting password logon",manualLogin);
       if (err && err.results){
