@@ -156,7 +156,8 @@ async function register ({
         }
         */
         console.log("███ saved matrix user",userName,matrixUser);
-        if (await checkTokenValid(matrixUser)){
+        /*
+          if (await checkTokenValid(matrixUser)){
           console.log("███ checked user token passes",matrixUser);
           return res.status(200).send(matrixUser);
         } else {
@@ -173,6 +174,8 @@ async function register ({
             console.log("███ failed to refresh user",matrixUser);
           }
         }
+        */
+        return res.status(200).send(matrixUser);
       } else {
         console.log("███ checking to see if user exists",userName)
         let testUser= {};
@@ -229,6 +232,23 @@ async function register ({
     console.log("███ account not found returning 404 error");
     return res.status(404).send();
   })
+  router.use('/setmatrixuser', async (req,res) => {
+    console.log("███ setting matrix user",req.body);
+    let user = await peertubeHelpers.user.getAuthUser(res);
+    //console.log("███ returned user",user);
+    if (user && user.dataValues) {
+      console.log("███ got authorized peertube user",user.dataValues.username);
+      let userName = user.dataValues.username;
+      let matrixUser=req.body;
+      if (matrixUser){
+        await storageManager.storeData("mu-" + userName,matrixUser);
+        console.log("███ saved matrix user",userName,matrixUser)
+        return res.status(200).send();
+      }
+    }
+    console.log("███ account not found returning 404 error");
+    return res.status(404).send("failed to set matrix user information");
+  })
   router.use('/getchatroom', async (req, res) => {
     console.log("███ getting chatroom ███",req.query);
     if (!req.query.channel){
@@ -272,11 +292,12 @@ async function register ({
     }
     console.log("███ chat room for", channel, "is",chatRoom);
     if (chatRoom) {
+      let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
       //console.log("███",user);
       if (user && user.dataValues && user.dataValues.role==0){
         let fixedChatRoom = encodeURIComponent(chatRoom);
         let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
-        let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
+        
         let adminBody = { "user_id": matrixUser.userId};
         let headers = {headers: {Authorization: 'Bearer ' + adminToken}}
         try {
@@ -289,10 +310,25 @@ async function register ({
       } else {
         console.log("███",user);
       }
+      let userJson = {user_id: matrixUser.userId};
+      let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(chatRoom)+`/invite`
+      let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
+      let result;
+      try {
+        result = await axios.post(inviteApi,userJson,headers);
+        console.log("sent invite",result.statusText);
+      } catch (err) {
+        console.log("failed sending invite",inviteApi,userJson,headers,err);
+      }
       return res.status(200).send(chatRoom);
     }
     if (channel && autoRoom){
-      let roomAlias = encodeURIComponent("#"+prefix+"-"+channel+":"+matrixDomain);
+      if (prefix){
+        matrixChannel=prefix+"-"+channel
+      } else {
+        matrixChannel=channel;
+      }
+      let roomAlias = encodeURIComponent("#"+matrixChannel+":"+matrixDomain);
       let roomCheckApi = homeServer+'/_matrix/client/v3/directory/room/'+roomAlias;
       let roomCheckData;
       try {
@@ -312,7 +348,7 @@ async function register ({
 
       let createRoomApi = homeServer+":8448/_matrix/client/r0/createRoom?access_token="+adminToken;
       let roomData = {};
-      roomData.room_alias_name = prefix+"-"+channel
+      roomData.room_alias_name = matrixChannel;
       roomData.visibility = "public";
       roomData.preset= "public_chat";
 
@@ -489,7 +525,7 @@ async function register ({
         matrixUser.password = password;
         console.log("███ new matrix user without secret ",matrixUser);
         storageManager.storeData("mu-"+user,matrixUser);
-        return res.status(200).send(matrixUser);
+        return matrixUser;
       } catch(err) {
         console.log("███ failed registering new account without secret for",user,newUser,err);
       }

@@ -80,10 +80,16 @@ async function register ({ registerHook, peertubeHelpers }) {
             } catch(err) {
               console.log("error attempting to get channel info",err);
             }
-            console.log(videoInfo)
-            let channel=videoInfo.data.channel.name;
-            let channelDisplay = videoInfo.data.channel.displayName;
-            let chatCreateResult = createChat(channel,channelDisplay);
+            console.log("videoInfo",videoInfo);
+
+            if (videoInfo){
+              let channel=videoInfo.data.channel.name;
+              let channelDisplay = videoInfo.data.channel.displayName;
+              let chatCreateResult = createChat(channel,channelDisplay);
+            } else {
+              console.log("unable to get video info to determine channel for chat");
+            }
+
           }
         })
       }
@@ -328,6 +334,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         });
       }
       if (matrixSettingsButton){
+        let matrixInviteButton,matrixUpdateButton;
         matrixSettingsButton.onclick = async function () {
           /*
           console.log("this",this);
@@ -338,11 +345,106 @@ async function register ({ registerHook, peertubeHelpers }) {
           } catch (err) {
             console.log("error sending invite",inviteApi,err);
           }
-  
-  */
-          
+          */
+              await peertubeHelpers.showModal({
+              title: 'Matrix Options ',
+              content: ` `,
+              close: true,
+              confirm: { value: 'X', id: 'matrixoptionsclose', action: () => { } },
+            });
+            let html = `You can invite your existing Matrix account to the chat room to easily access it from your client of choice. You can specify the matrix account in the format: @don:invidious.peertube.biz<br>`;
+            html = html +`the @ symbol followed by the user name, then a colon and the Matrix Server the account resides on.<br>`;
+            html = html + `<br><label for="matrixinvite">address to invite:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixinvite">`;
+            html =html +`<button class="peertube-button orange-button ng-star-inserted" id="sendinvite">send invite</button>`;
+           
+            //html = html + `<hr>  <input type="checkbox" id="customaddress" name="customaddress">`;
+            html = html+"<hr>";
+            //html = html + `<label for="customaddress"> Specify user address</label><br>`;
+            html = html + `You can specify an external matrix account to use for PeerTube by setting the following parameters. Depending on server configuration either password or token should work.<br>`
+            html = html + `<label for="address">Matrix Address:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixaddress" >`;
+            html = html + `<br><label for="address">Token:</label><input style="color: #000000; background-color: #ffffff;"  type="password" id="matrixtoken" >`;
+            html = html + `<br><label for="address">Password:</label><input style="color: #000000; background-color: #ffffff;"  type="password" id="matrixpassword" >`;
+            html =html +`<button class="peertube-button orange-button ng-star-inserted" id="updatematrixaccount">set matrix account</button>`;
+           
+            let modal = (document.getElementsByClassName('modal-body'))
+            modal[0].setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms')
+            modal[0].innerHTML = html;
+            matrixInviteButton= document.getElementById('sendinvite');
+            matrixUpdateButton= document.getElementById('updatematrixaccount');
+            if (matrixInviteButton){
+              matrixInviteButton.onclick = async function () {
+                let invitee = document.getElementById('matrixinvite');
+                let inviteResult;
+                if (invitee) {
+                  let inviteApi = peertubeHelpers.getBaseRouterRoute()+"/sendinvite?room="+roomId+"&user="+encodeURIComponent(invitee.value);
+                  try {
+                    inviteResult = await axios.get(inviteApi);
+                    console.log("invite result",inviteResult);
+                  } catch (err) {
+                    console.log("error sending invite",inviteApi,err);
+                  }
+                  if (inviteResult && inviteResult.status){
+                    if (inviteResult.status == 200){
+                      notifier.success("successfully sent invite");
+                    } else {
+                      notifier.error (inviteResult.statusText);
+                    }
+                  }
+                }
+              }
+            }
+            if (matrixUpdateButton){
+              matrixUpdateButton.onclick  = async function () {
+                let matrixUser = {};
+                let baseUrl;
+                let matrixAddress= document.getElementById('matrixaddress');
+                let matrixToken= document.getElementById('matrixtoken');
+                let matrixPassword= document.getElementById('matrixpassword');
+                if (matrixAddress.value){
+                  let parts = matrixAddress.value.split(":");
+                  if (parts.length>1){
+                    matrixUser.baseUrl= "https://"+parts[1];
+                  } else {
+                    console.log("unable to find server in address",matrixAddress.value);
+                    return;
+                  }
+                  if (matrixAddress.value.indexOf('@') != 0){
+                    console.log("first character of user name should be @",matrixAddress.value.indexOf('@'));
+                    return;
+                  }
+                }
+                if (!matrixToken.value && !matrixPassword.value){
+                  console.log("no authentication method entered");
+                  return;
+                }
+                matrixUser.userId = matrixAddress.value;
+                if (matrixToken.value){
+                  matrixUser.accessToken = matrixToken.value;
+                }
+                if (matrixPassword.value && (matrixPassword.value.length>1)){
+                  matrixUser.password = matrixPassword.value;
+                }
+                let setUserApi = peertubeHelpers.getBaseRouterRoute()+"/setmatrixuser";
+                let setResult;
+                try {
+                  setResult = await axios.post(setUserApi,matrixUser,{ headers: await peertubeHelpers.getAuthHeader() });
+                  console.log("set user result",setResult);
+                } catch (err) {
+                  console.log("error setting matrix account settings",setUserApi,err);
+                }
+                if (setResult && setResult.status){
+                  if (setResult.status == 200){
+                    notifier.success("successfully updated account settings, logout and log back in");
+                  } else {
+                    notifier.error (setResult.statusText);
+                  }
+                }
+              }
+            }
         }
+
       }
+
       if (matrixLinkButton){
         matrixLinkButton.onclick = async function () {
           let roomLink ="https://matrix.to/#/"+roomId;
