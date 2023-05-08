@@ -279,7 +279,10 @@ async function register ({
         console.log("███hard error getting remote custom chat room for ", channel, "from", parts[1], chatApi);
       }
       if (customChat) {
-        console.log("███ returning", customChat.toString(), "for", channel);
+        console.log("███ returning", customChat, "for", channel);
+        if (user && user.dataValues){
+          sendInvite(customChat,user.dataValues.username);
+        }
         return res.status(200).send(customChat.data);
       }
       console.log("███ failed to get remote room id");
@@ -594,6 +597,19 @@ async function register ({
     } else {
       console.log("███ nonce is undefined",nonceRequest);
       return;
+    }
+  }
+  async function sendInvite(channel,target){
+    let userJson = {user_id: target};
+    let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(channel)+`/invite`
+    let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
+    let result;
+    try {
+      result = await axios.post(inviteApi,userJson,headers);
+      console.log("sent invite",result);
+      return res.status(200).send(result.data);
+    } catch (err) {
+      console.log("failed sending invite",inviteApi,err);
     }
   }
 }
