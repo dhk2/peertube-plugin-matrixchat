@@ -258,6 +258,8 @@ async function register ({
     let user = await peertubeHelpers.user.getAuthUser(res);
     if (user){
       console.log("███ authorized user",user.dataValues.username);
+    } else {
+      console.log("failed to load authorized user",res)
     }
     let channel = req.query.channel;
     //hack for crossnetwork alpha testing
@@ -268,6 +270,7 @@ async function register ({
     console.log("███ parts",parts);
     let customChat;
     if (parts.length > 1) {
+      //let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
       let chatApi = "https://" + parts[1] + "/plugins/matrixchat/router/getchatroom?channel=" + parts[0];
       console.log("███remote chat room request",chatApi);
       try {
@@ -292,35 +295,43 @@ async function register ({
     }
     console.log("███ chat room for", channel, "is",chatRoom);
     if (chatRoom) {
-      let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
-      //console.log("███",user);
-      if (user && user.dataValues && user.dataValues.role==0){
-        let fixedChatRoom = encodeURIComponent(chatRoom);
-        let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
-        
-        let adminBody = { "user_id": matrixUser.userId};
-        let headers = {headers: {Authorization: 'Bearer ' + adminToken}}
-        try {
-          console.log("███ set admin",setAdminApi,matrixUser,adminBody,headers);
-          let madeAdmin= await axios.post(setAdminApi,adminBody,headers)
-          //console.log("███ made admin",madeAdmin);
-        } catch (err){
-          console.log("failed to make admin",err);
+      console.log("███ user",user);
+      let matrixUser;
+      if (user && user.dataValues){
+        let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
+        if (user.dataValues.role==0){
+          let fixedChatRoom = encodeURIComponent(chatRoom);
+          let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
+          
+          let adminBody = { "user_id": matrixUser.userId};
+          let headers = {headers: {Authorization: 'Bearer ' + adminToken}}
+          try {
+            console.log("███ set admin",setAdminApi,matrixUser,adminBody,headers);
+            let madeAdmin= await axios.post(setAdminApi,adminBody,headers)
+            //console.log("███ made admin",madeAdmin);
+          } catch (err){
+            console.log("failed to make admin",err);
+          }
+        } else {
+          console.log("███ user not admin",user);
         }
+      }
+      console.log("███ matrix user",matrixUser);
+      if (matrixUser){
+        let userJson = {user_id: matrixUser.userId};
+        let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(chatRoom)+`/invite`
+        let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
+        let result;
+        try {
+          result = await axios.post(inviteApi,userJson,headers);
+          console.log("sent invite",result.statusText);
+        } catch (err) {
+          console.log("failed sending invite",inviteApi,userJson,headers,err);
+        }
+        return res.status(200).send(chatRoom);
       } else {
-        console.log("███",user);
+        console.log("███ no matrix user found to invite");
       }
-      let userJson = {user_id: matrixUser.userId};
-      let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(chatRoom)+`/invite`
-      let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
-      let result;
-      try {
-        result = await axios.post(inviteApi,userJson,headers);
-        console.log("sent invite",result.statusText);
-      } catch (err) {
-        console.log("failed sending invite",inviteApi,userJson,headers,err);
-      }
-      return res.status(200).send(chatRoom);
     }
     if (channel && autoRoom){
       if (prefix){
