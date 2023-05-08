@@ -294,11 +294,12 @@ async function register ({
       }
     }
     console.log("███ chat room for", channel, "is",chatRoom);
+    let matrixUser;
     if (chatRoom) {
       console.log("███ user",user);
-      let matrixUser;
+      
       if (user && user.dataValues){
-        let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
+        matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
         if (user.dataValues.role==0){
           let fixedChatRoom = encodeURIComponent(chatRoom);
           let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
@@ -328,10 +329,11 @@ async function register ({
         } catch (err) {
           console.log("failed sending invite",inviteApi,userJson,headers,err);
         }
-        return res.status(200).send(chatRoom);
+        
       } else {
         console.log("███ no matrix user found to invite");
       }
+      return res.status(200).send(chatRoom);
     }
     if (channel && autoRoom){
       if (prefix){
