@@ -261,6 +261,7 @@ async function register ({
     } else {
       console.log("failed to load authorized user",res)
     }
+    let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
     let channel = req.query.channel;
     //hack for crossnetwork alpha testing
     if (channel=="live@jupiter.tube"){
@@ -280,9 +281,9 @@ async function register ({
       }
       if (customChat) {
         console.log("███ returning", customChat, "for", channel);
-        if (user && user.dataValues){
-          sendInvite(customChat,user.dataValues.username);
-        }
+        //if (matrixUser){
+        //  sendInvite(customChat.data,matrixUser.userId);
+        //}
         return res.status(200).send(customChat.data);
       }
       console.log("███ failed to get remote room id");
@@ -297,16 +298,13 @@ async function register ({
       }
     }
     console.log("███ chat room for", channel, "is",chatRoom);
-    let matrixUser;
     if (chatRoom) {
       console.log("███ user",user);
       
-      if (user && user.dataValues){
-        matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
+      if (matrixUser){
         if (user.dataValues.role==0){
           let fixedChatRoom = encodeURIComponent(chatRoom);
           let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
-          
           let adminBody = { "user_id": matrixUser.userId};
           let headers = {headers: {Authorization: 'Bearer ' + adminToken}}
           try {
@@ -321,9 +319,14 @@ async function register ({
         }
       }
       console.log("███ matrix user",matrixUser);
+      /*
       if (matrixUser){
+        sendInvite(chatRoom,matrixUser.userId);
         let userJson = {user_id: matrixUser.userId};
-        let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(chatRoom)+`/invite`
+        console.log("███ user json",userJson,matrixUser);
+        let userParts = matrixUser.userId.split(":");
+        let roomServer = "https://"+userParts[1]
+        let inviteApi=roomServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(chatRoom)+`/invite`
         let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
         let result;
         try {
@@ -332,10 +335,10 @@ async function register ({
         } catch (err) {
           console.log("failed sending invite",inviteApi,userJson,headers,err);
         }
-        
       } else {
         console.log("███ no matrix user found to invite");
       }
+      */      
       return res.status(200).send(chatRoom);
     }
     if (channel && autoRoom){
@@ -446,12 +449,25 @@ async function register ({
     console.log("███ Sending an invite", req.query);
     let channel = req.query.room;
     let target = req.query.user;
+    let instance = req.query.instance;
     if (!channel || !target){
       console.log("███ malformed invite request",req.query);
        return res.status(400).send();
     }
+    let redirectResult;
+    if (instance){
+      let redirectInviteApi = "https://"+instance+"/plugins/matrixchat/router/sendinvite?room="+channel+"&user="+target;
+      try {
+        redirectResult = await axios.post(redirectInviteApi);
+        console.log("sent invite",result);
+        return res.status(200).send(result.data);
+      } catch (err) {
+        console.log("failed sending invite",inviteApi,err);
+      }
+    }
+    let inviteServer = homeServer;
     let userJson = {user_id: target};
-    let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(channel)+`/invite`
+    let inviteApi=inviteServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(channel)+`/invite`
     let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
     let result;
     try {
@@ -601,6 +617,8 @@ async function register ({
   }
   async function sendInvite(channel,target){
     let userJson = {user_id: target};
+    //let roomParts = channel.split(":");
+    //let roomServer = "https://"+roomParts[1]
     let inviteApi=homeServer+`:8448/_matrix/client/r0/rooms/`+encodeURIComponent(channel)+`/invite`
     let headers = {headers: {Authorization: 'Bearer ' + adminToken }};
     let result;

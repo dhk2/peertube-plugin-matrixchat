@@ -10,7 +10,7 @@ import axios from 'axios';
 import sdk from 'matrix-js-sdk';
 async function register ({ registerHook, peertubeHelpers }) {
   console.log('Matrix Chat Initializing');
-  let matrixUser,client;
+  let matrixUser,client,joinedRooms;
   const basePath = await peertubeHelpers.getBaseRouterRoute();
   const { notifier } = peertubeHelpers
   registerHook({
@@ -51,7 +51,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         client.startClient();
         client.once('sync', async function(state, prevState, res) {
           console.log("matrix state",state); // state will be 'PREPARED' when the client is ready to use
-          let rooms = await client.getJoinedRooms();
+          joinedRooms = await client.getJoinedRooms();
           console.log("rooms user is a member of",rooms);
           let matrixAvatar = await client.getProfileInfo(matrixUser.userId,'avatar_url');
           console.log("client settings",matrixAvatar);
@@ -121,7 +121,7 @@ async function register ({ registerHook, peertubeHelpers }) {
     handler: async () => {
       let channelUpdate = document.getElementsByClassName("form-group");
       let channel = (window.location.href).split("/").pop();
-      let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+channel;
+      let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+encodeURIComponent(channel);
       let roomId;
       console.log("matrix chatroom request api",chatApi);
       try {
@@ -167,6 +167,7 @@ async function register ({ registerHook, peertubeHelpers }) {
     }
   })
   async function createChat(channelName,channelDisplay){
+    console.log(channelName);
     let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+channelName;
     let roomId,maxHeight,userToken;
     console.log("room request api",chatApi);
@@ -196,7 +197,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         client.startClient();
         client.once('sync', async function(state, prevState, res) {
           console.log("Matrix state",state); // state will be 'PREPARED' when the client is ready to use
-          let rooms = await client.getJoinedRooms();
+          joinedRooms = await client.getJoinedRooms();
           console.log("Matrix rooms user is a member of",rooms);
         });
       }
@@ -208,7 +209,24 @@ async function register ({ registerHook, peertubeHelpers }) {
     //console.log("44444",roomId,client);
     let addSpot = document.getElementById('plugin-placeholder-player-next');
     if (client && roomId && addSpot) {
-      console.log("joining room",roomId);
+      if (joinedRooms.joined_rooms.includes(roomId)){
+        console.log("already member of room",roomId);
+      } else {
+        let inviteResult;
+        
+        let inviteApi = peertubeHelpers.getBaseRouterRoute()+"/sendinvite?room="+encodeURIComponent(roomId)+"&user="+encodeURIComponent(matrixUser.userId);
+        let channelParts = channelName.split("@");
+        if (channelParts.length>1){
+          inviteApi = inviteApi+"&instance="+channelParts[1];
+        }
+        try {
+          inviteResult = await axios.get(inviteApi);
+          console.log("invite result",inviteResult);
+        } catch (err) {
+          console.log("error sending invite",inviteApi,err);
+        }
+      }
+      console.log("joining room",roomId,matrixUser);
       try {
         await client.joinRoom(roomId)
       } catch (err){
