@@ -256,12 +256,13 @@ async function register ({
     }
     //return res.status(200).send("!ULdntgxAgvbNuXZQGu:matrix.org");
     let user = await peertubeHelpers.user.getAuthUser(res);
-    if (user){
+    let matrixUser;
+    if (user && user.dataValues){
       console.log("███ authorized user",user.dataValues.username);
+      matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
     } else {
       console.log("failed to load authorized user",res)
     }
-    let matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
     let channel = req.query.channel;
     //hack for crossnetwork alpha testing
     if (channel=="live@jupiter.tube"){
