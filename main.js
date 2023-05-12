@@ -459,10 +459,10 @@ async function register ({
       let redirectInviteApi = "https://"+instance+"/plugins/matrixchat/router/sendinvite?room="+channel+"&user="+target;
       try {
         redirectResult = await axios.post(redirectInviteApi);
-        console.log("sent invite",result);
-        return res.status(200).send(result.data);
+        console.log("sent invite",redirectResult);
+        return res.status(200).send(redirectResult.data);
       } catch (err) {
-        console.log("failed sending invite",inviteApi,err);
+        console.log("failed sending invite",redirectInviteApi,err);
       }
     }
     let inviteServer = homeServer;
