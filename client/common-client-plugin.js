@@ -382,7 +382,7 @@ async function register ({ registerHook, peertubeHelpers }) {
             html = html + `<label for="address">Matrix Address:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixaddress" >`;
             html = html + `<br><label for="address">Token:</label><input style="color: #000000; background-color: #ffffff;"  type="password" id="matrixtoken" >`;
             html = html + `<br><label for="address">Password:</label><input style="color: #000000; background-color: #ffffff;"  type="password" id="matrixpassword" >`;
-            html =html +`<button class="peertube-button orange-button ng-star-inserted" id="updatematrixaccount">set matrix account</button>`;
+            html =html +`<br><button class="peertube-button orange-button ng-star-inserted" id="updatematrixaccount">set matrix account</button>`;
            
             let modal = (document.getElementsByClassName('modal-body'))
             modal[0].setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms')

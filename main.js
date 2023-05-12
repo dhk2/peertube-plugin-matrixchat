@@ -343,6 +343,7 @@ async function register ({
       return res.status(200).send(chatRoom);
     }
     if (channel && autoRoom){
+      console.log("███ chat room being created for ", channel);
       if (prefix){
         matrixChannel=prefix+"-"+channel
       } else {
@@ -404,6 +405,8 @@ async function register ({
       //return res.status(400).send();
       //return basic devops room
       return res.status(200).send("!ULdntgxAgvbNuXZQGu:matrix.org");
+    } else {
+      console.log("not creating room",channel,autoRoom);
     }
   })
   router.use('/setchatroom', async (req, res) => {
@@ -464,6 +467,7 @@ async function register ({
         return res.status(200).send(redirectResult.data);
       } catch (err) {
         console.log("failed sending invite",redirectInviteApi,err);
+        return res.status(420).send(("failed sending invite request to "+instance));
       }
     }
     let inviteServer = homeServer;
