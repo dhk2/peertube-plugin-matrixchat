@@ -52,7 +52,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         client.once('sync', async function(state, prevState, res) {
           console.log("matrix state",state); // state will be 'PREPARED' when the client is ready to use
           joinedRooms = await client.getJoinedRooms();
-          console.log("rooms user is a member of",rooms);
+          console.log("rooms user is a member of",joinedRooms);
           let matrixAvatar = await client.getProfileInfo(matrixUser.userId,'avatar_url');
           console.log("client settings",matrixAvatar);
           console.log("peertube settings",user.account.avatars[0]);
@@ -198,7 +198,7 @@ async function register ({ registerHook, peertubeHelpers }) {
         client.once('sync', async function(state, prevState, res) {
           console.log("Matrix state",state); // state will be 'PREPARED' when the client is ready to use
           joinedRooms = await client.getJoinedRooms();
-          console.log("Matrix rooms user is a member of",rooms);
+          console.log("Matrix rooms user is a member of",joinedRooms);
         });
       }
     }
