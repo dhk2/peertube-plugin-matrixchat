@@ -1,7 +1,7 @@
 {
   "name": "peertube-plugin-matrixchat",
   "description": "PeerTube plugin for matrix based channel chatrooms",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "dhk2",
   "license": "ISC",
   "bugs": "https://githubs.com/dhk2/peertube-plugin-matrixchat/issues",
