@@ -28,14 +28,29 @@ async function register ({
     label: 'Matrix account to administer the chat rooms',
     default: 'goku',
     type: 'input',
-    descriptionHTML: 'account to create users and rooms and bestow admin powers',
+    descriptionHTML: 'Account to create users and rooms and bestow admin powers. Does not need to be a server admin',
     private: false
   })
   registerSetting({
     name: 'matrix-admin-token',
     label: 'Matrix token for admin account',
     type: 'input-password',
-    descriptionHTML: 'access token for admin account, can be grabbed from element',
+    descriptionHTML: 'Access token for admin account. ',
+    private: true
+  })
+    registerSetting({
+    name: 'matrix-anon',
+    label: 'Matrix account for unlogged in users',
+    default: 'anon',
+    type: 'input',
+    descriptionHTML: 'Matrix account to use for unlogged in users',
+    private: false
+  })
+  registerSetting({
+    name: 'matrix-anon-token',
+    label: 'Matrix token for anon account',
+    type: 'input-password',
+    descriptionHTML: 'access token for unlogged in users to chat, can be grabbed from element',
     private: true
   })
   registerSetting({
@@ -88,21 +103,7 @@ async function register ({
     private: false
   })
 
-  registerSetting({
-    name: 'matrix-anon',
-    label: 'Matrix account for unlogged in users',
-    default: 'anon',
-    type: 'input',
-    descriptionHTML: 'Matrix account to use for unlogged in users',
-    private: false
-  })
-  registerSetting({
-    name: 'matrix-anon-token',
-    label: 'Matrix token for anon account',
-    type: 'input-password',
-    descriptionHTML: 'access token for unlogged in users to chat, can be grabbed from element',
-    private: true
-  })
+
   var base = await peertubeHelpers.config.getWebserverUrl();
   let adminToken = await settingsManager.getSetting("matrix-admin-token");
   let homeServer = await settingsManager.getSetting("matrix-home");
@@ -311,9 +312,9 @@ async function register ({
           try {
             console.log("███ set admin",setAdminApi,matrixUser,adminBody,headers);
             let madeAdmin= await axios.post(setAdminApi,adminBody,headers)
-            //console.log("███ made admin",madeAdmin);
+            console.log("███ made admin",madeAdmin);
           } catch (err){
-            console.log("failed to make admin",err);
+            console.log("███failed to make admin",err);
           }
         } else {
           console.log("███ user not admin",user);

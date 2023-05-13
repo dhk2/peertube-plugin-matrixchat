@@ -102,9 +102,11 @@ async function register ({ registerHook, peertubeHelpers }) {
       if (test){
         return;
       }
-      
+      let settings =await peertubeHelpers.getSettings();
       console.log("video metadata",video);
+      if (video.isLive || settings['matrix-always']){
       let chatRoomResult = createChat(video.byVideoChannel,video.channel.displayName);
+      }
     }
   })  
   registerHook({
@@ -209,7 +211,7 @@ async function register ({ registerHook, peertubeHelpers }) {
     //console.log("44444",roomId,client);
     let addSpot = document.getElementById('plugin-placeholder-player-next');
     if (client && roomId && addSpot) {
-      if (joinedRooms.joined_rooms.includes(roomId)){
+      if (joinedRooms && joinedRooms.joined_rooms.includes(roomId)){
         console.log("already member of room",roomId);
       } else {
         let inviteResult;
@@ -353,7 +355,15 @@ async function register ({ registerHook, peertubeHelpers }) {
       }
       if (matrixSettingsButton){
         let matrixInviteButton,matrixUpdateButton;
-        matrixSettingsButton.onclick = async function () {
+        matrixSettingsButton.onclick = async function () { 
+          //console.log("client",client);
+          //console.log("store",client.store);
+          //console.log("rooms",client.store.rooms);
+          console.log("members",client.store.rooms[roomId].currentState.members);
+          console.log("members",client.store.rooms[roomId].currentState.members[matrixUser.userId]);
+          if (client.store.rooms[roomId].currentState.members[matrixUser.userId].powerLevel==100){
+            console.log(userId,"is an admin");
+          }
           /*
           console.log("this",this);
           let inviteApi = peertubeHelpers.getBaseRouterRoute()+"/sendinvite?room="+roomId+"&user="+encodeURIComponent("@errhead:matrix.org");
