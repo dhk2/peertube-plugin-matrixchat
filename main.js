@@ -26,7 +26,6 @@ async function register ({
   registerSetting({
     name: 'matrix-admin',
     label: 'Matrix account to administer the chat rooms',
-    default: 'goku',
     type: 'input',
     descriptionHTML: 'Account to create users and rooms and bestow admin powers. Does not need to be a server admin',
     private: false
@@ -53,24 +52,7 @@ async function register ({
     descriptionHTML: 'access token for unlogged in users to chat, can be grabbed from element',
     private: true
   })
-  registerSetting({
-    name: 'matrix-user-auto',
-    label: 'Automatically create local matrix accounts for peertube accounts',
-    type: 'input-checkbox',
-    descriptionHTML: 'This will enable user avatars and display names. Can use shared secret or open registration',
-    deault:true,
-    private: false
-  })
-  registerSetting({
-    name: 'matrix-room-auto',
-    label: 'Automatically create local matrix rooms for every channel',
-    type: 'input-checkbox',
-    descriptionHTML: 'This will create rooms on the home server for every channel. if disabled only channels with manually configured room addresses will have chat available',
-    deault:true,
-    private: false
-  })
-
-  registerSetting({
+    registerSetting({
     name: 'matrix-shared-secret',
     label: 'Shared secret to allow account creation on matrix server',
     type: 'input-password',
@@ -80,17 +62,35 @@ async function register ({
 
   registerSetting({
     name: 'matrix-prefix',
-    label: 'used with shared Matrix servers to make unique room/user names',
+    label: 'Room prefix. Used with shared Matrix servers to make ensure unique room/user names',
     type: 'input',
-    descriptionHTML: 'should be the same as the one configured in synapse/dendrite, if not present open registration will be attempted',
-    private: true
+    descriptionHTML: 'mainly useful to prevent name collisions when multiple PeerTube instances share a Matrix server',
+    private: false
   })
+  registerSetting({
+    name: 'matrix-user-auto',
+    label: 'Automatically create local matrix accounts for peertube accounts',
+    type: 'input-checkbox',
+    descriptionHTML: 'This will enable user avatars and display names. Can use shared secret or open registration',
+    default:true,
+    private: false
+  })
+  registerSetting({
+    name: 'matrix-room-auto',
+    label: 'Automatically create local matrix rooms for every channel',
+    type: 'input-checkbox',
+    descriptionHTML: 'This will create rooms on the home server for every channel. if disabled only channels with manually configured room addresses will have chat available',
+    default:true,
+    private: false
+  })
+
+
   registerSetting({
     name: 'matrix-always',
     label: 'Enable matrix chat for channels even when not actively livestreaming',
     type: 'input-checkbox',
     descriptionHTML: 'This will enable Matrix chat on every video at all times, not just on livestreams',
-    deault:true,
+    default:true,
     private: false
   })
 
@@ -98,8 +98,8 @@ async function register ({
     name: 'matrix-anon-allow',
     label: 'Allow unlogged in users to partake anonymously in chat',
     type: 'input-checkbox',
-    descriptionHTML: 'This will enable system anon account in all channels. If channels have problems they can moderate the anon accunt',
-    deault:true,
+    descriptionHTML: 'This will enable system anon account in all channels. This allows unlogged in users to participate in chat',
+    default:true,
     private: false
   })
 
@@ -301,18 +301,30 @@ async function register ({
     }
     console.log("███ chat room for", channel, "is",chatRoom);
     if (chatRoom) {
-      console.log("███ user",user);
+      //console.log("███ user",user);
       
       if (matrixUser){
-        if (user.dataValues.role==0){
+        let channelListApi = base+ "/api/v1/video-channels/"+channel;
+        let channelList;
+        try {
+          channelList = await axios.get(channelListApi);
+        } catch (err){
+          console.log("unable to get channel list for user",channelListApi);
+        }
+        let channelOwner;
+        if (channelList){
+          channelOwner = channelList.data.ownerAccount.name;
+        }
+        console.log("███ checking room owner",channelOwner,user.dataValues.username)
+        if (user.dataValues.role==0 || channelOwner == user.dataValues.username){
           let fixedChatRoom = encodeURIComponent(chatRoom);
           let setAdminApi = homeServer+"/_synapse/admin/v1/rooms/"+fixedChatRoom+"/make_room_admin"
           let adminBody = { "user_id": matrixUser.userId};
           let headers = {headers: {Authorization: 'Bearer ' + adminToken}}
           try {
-            console.log("███ set admin",setAdminApi,matrixUser,adminBody,headers);
+            console.log("set admin",setAdminApi,matrixUser,adminBody,headers);
             let madeAdmin= await axios.post(setAdminApi,adminBody,headers)
-            console.log("███ made admin",madeAdmin);
+            //console.log("███ made admin",madeAdmin);
           } catch (err){
             console.log("███failed to make admin",err);
           }

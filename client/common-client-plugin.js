@@ -137,9 +137,9 @@ async function register ({ registerHook, peertubeHelpers }) {
       let panel = document.createElement('div');
       panel.setAttribute('class', 'matrix-panel');
       panel.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms')
-      let html = "Set matrix chat room ID, can be configured by specifying room ID (!2tP8BSJVwZSfeEF5:invidious.peertube.biz) or alias (#p2ptube-dbz:invidious.peertube.biz)";
-      html = html + "<br><b> Matrix Chatroom ID:</b>";
-      html = html + `<input STYLE="color: #000000; background-color: #ffffff;"type="text" id="matrix-chatroom" name="Matrix-chatroom" value="` + roomId + `">`
+      let html;
+      html = "<hr><b> Matrix Chatroom ID:</b><br>";
+      html = html + `<input STYLE="color: #000000; background-color: #ffffff;"type="text" id="matrix-chatroom" name="Matrix-chatroom" value="` + roomId + `" title = "Set matrix chat room ID, can be configured by specifying room ID (!2tP8BSJVwZSfeEF5:invidious.peertube.biz) or alias (#p2ptube-dbz:invidious.peertube.biz)" size="42">`
       html = html + `<button type="button" id="update-matrix-chat" name="update-matrix-chat" class="peertube-button orange-button ng-star-inserted">Save</button>`
 
       console.log("matrix html",html);
@@ -354,15 +354,15 @@ async function register ({ registerHook, peertubeHelpers }) {
         });
       }
       if (matrixSettingsButton){
-        let matrixInviteButton,matrixUpdateButton;
+        let matrixInviteButton,matrixUpdateButton,matrixUserList,matrixBanButton,matrixAdminButton;
         matrixSettingsButton.onclick = async function () { 
           //console.log("client",client);
           //console.log("store",client.store);
           //console.log("rooms",client.store.rooms);
           console.log("members",client.store.rooms[roomId].currentState.members);
           console.log("members",client.store.rooms[roomId].currentState.members[matrixUser.userId]);
-          if (client.store.rooms[roomId].currentState.members[matrixUser.userId].powerLevel==100){
-            console.log(userId,"is an admin");
+          if (matrixUser && client.store.rooms[roomId].currentState.members[matrixUser.userId].powerLevel==100){
+            console.log(matrixUser.userId,"is an admin");
           }
           /*
           console.log("this",this);
@@ -380,25 +380,34 @@ async function register ({ registerHook, peertubeHelpers }) {
               close: true,
               confirm: { value: 'X', id: 'matrixoptionsclose', action: () => { } },
             });
-            let html = `You can invite your existing Matrix account to the chat room to easily access it from your client of choice. You can specify the matrix account in the format: @don:invidious.peertube.biz<br>`;
-            html = html +`the @ symbol followed by the user name, then a colon and the Matrix Server the account resides on.<br>`;
-            html = html + `<br><label for="matrixinvite">address to invite:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixinvite">`;
-            html =html +`<button class="peertube-button orange-button ng-star-inserted" id="sendinvite">send invite</button>`;
+            let html = `You can invite your existing Matrix account to the chat room to easily access it from your client of choice. You can specify the matrix account in the format: @don:invidious.peertube.biz`;
+            html = html + `<br><label for="matrixinvite">address to invite:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixinvite" title = "the @ symbol followed by the user name, then a colon and the Matrix Server the account resides on." placeholder = "@user:server.com">`;
+            html =html +`<button class="peertube-button orange-button ng-star-inserted" id="sendinvite">Send Invite</button>`;
            
             //html = html + `<hr>  <input type="checkbox" id="customaddress" name="customaddress">`;
             html = html+"<hr>";
             //html = html + `<label for="customaddress"> Specify user address</label><br>`;
             html = html + `You can specify an external matrix account to use for PeerTube by setting the following parameters. Depending on server configuration either password or token should work.<br>`
-            html = html + `<label for="address">Matrix Address:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixaddress" >`;
-            html = html + `<br><label for="address">Token:</label><input style="color: #000000; background-color: #ffffff;"  type="password" id="matrixtoken" >`;
-            html = html + `<br><label for="address">Password:</label><input style="color: #000000; background-color: #ffffff;"  type="password" id="matrixpassword" >`;
-            html =html +`<br><button class="peertube-button orange-button ng-star-inserted" id="updatematrixaccount">set matrix account</button>`;
-           
+            html = html + `<label for="address">Matrix Address:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixaddress" placeholder = "@user:server.com" >`;
+            html = html + `<br><label for="address">Token:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixtoken" >`;
+            html = html + `<br><label for="address">Password:</label><input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixpassword" >`;
+            html =html +`<br><button class="peertube-button orange-button ng-star-inserted" id="updatematrixaccount">Set Matrix Account</button>`;
+            if (matrixUser && client.store.rooms[roomId].currentState.members[matrixUser.userId].powerLevel==100){
+              console.log(matrixUser.userId,"is an admin");
+              html = html + `<hr>User Levels<br>`;
+              html = html +`<select id="matrixuserlist"><Option value="" >Chatters</option></select><br>`;
+              //html = html + `<input style="color: #000000; background-color: #ffffff;"  type="text" id="matrixedit"><br>`;
+              html =html +`<button class="peertube-button orange-button ng-star-inserted" id="matrixadminbutton">Make Admin</button>`;
+              html =html +`<button class="peertube-button orange-button ng-star-inserted" id="matrixbanbutton">Remove Admin</button>`;
+            }           
             let modal = (document.getElementsByClassName('modal-body'))
             modal[0].setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms')
             modal[0].innerHTML = html;
             matrixInviteButton= document.getElementById('sendinvite');
             matrixUpdateButton= document.getElementById('updatematrixaccount');
+            matrixUserList = document.getElementById('matrixuserlist');
+            matrixAdminButton = document.getElementById('matrixadminbutton');
+            matrixBanButton = document.getElementById('matrixbanbutton');
             if (matrixInviteButton){
               matrixInviteButton.onclick = async function () {
                 let invitee = document.getElementById('matrixinvite');
@@ -423,7 +432,7 @@ async function register ({ registerHook, peertubeHelpers }) {
             }
             if (matrixUpdateButton){
               matrixUpdateButton.onclick  = async function () {
-                let matrixUser = {};
+                let newMatrixUser = {};
                 let baseUrl;
                 let matrixAddress= document.getElementById('matrixaddress');
                 let matrixToken= document.getElementById('matrixtoken');
@@ -431,7 +440,7 @@ async function register ({ registerHook, peertubeHelpers }) {
                 if (matrixAddress.value){
                   let parts = matrixAddress.value.split(":");
                   if (parts.length>1){
-                    matrixUser.baseUrl= "https://"+parts[1];
+                    newMatrixUser.baseUrl= "https://"+parts[1];
                   } else {
                     console.log("unable to find server in address",matrixAddress.value);
                     return;
@@ -445,17 +454,17 @@ async function register ({ registerHook, peertubeHelpers }) {
                   console.log("no authentication method entered");
                   return;
                 }
-                matrixUser.userId = matrixAddress.value;
+                newMatrixUser.userId = matrixAddress.value;
                 if (matrixToken.value){
-                  matrixUser.accessToken = matrixToken.value;
+                  newMatrixUser.accessToken = matrixToken.value;
                 }
                 if (matrixPassword.value && (matrixPassword.value.length>1)){
-                  matrixUser.password = matrixPassword.value;
+                  newMatrixUser.password = matrixPassword.value;
                 }
                 let setUserApi = peertubeHelpers.getBaseRouterRoute()+"/setmatrixuser";
                 let setResult;
                 try {
-                  setResult = await axios.post(setUserApi,matrixUser,{ headers: await peertubeHelpers.getAuthHeader() });
+                  setResult = await axios.post(setUserApi,newMatrixUser,{ headers: await peertubeHelpers.getAuthHeader() });
                   console.log("set user result",setResult);
                 } catch (err) {
                   console.log("error setting matrix account settings",setUserApi,err);
@@ -466,6 +475,80 @@ async function register ({ registerHook, peertubeHelpers }) {
                   } else {
                     notifier.error (setResult.statusText);
                   }
+                }
+              }
+            }
+            if (matrixUserList){
+              let allUsers = client.store.rooms[roomId].currentState.members;
+              console.log("all users",allUsers,allUsers.length);
+              for (const user in allUsers){
+                let userChoice = document.createElement("option");
+                userChoice.text = user;
+                //userChoice.value = user;
+                console.log("adding ",user,userChoice);
+                matrixUserList.add(userChoice);
+              }
+              matrixUserList.addEventListener('change', function() {
+                console.log('You selected: ', this.value);
+                let allUsers = client.store.rooms[roomId].currentState.members;
+                console.log("selected ",matrixUserList.selectedIndex, matrixUserList[matrixUserList.selectedIndex].value);
+                let targetUserId = this.value;
+                console.log("target user",allUsers[targetUserId]);
+                let powerLevel = allUsers[targetUserId].powerLevel;
+                if (powerLevel ==100){
+                  console.log("full admin");
+                  matrixAdminButton.style.visibility="hidden";
+                  matrixBanButton.style.visibility="hidden";
+                }
+                if (powerLevel>0 && powerLevel <100){
+                  console.log("admin");
+                  matrixAdminButton.style.visibility="hidden";
+                  matrixBanButton.style.visibility="visible";
+                }
+
+               if (powerLevel == 0){
+                  console.log("user");
+                  matrixAdminButton.style.visibility="visible";
+                  matrixBanButton.style.visibility="hidden";
+                }
+              });
+            }
+            if (matrixAdminButton){
+              matrixAdminButton.onclick  = async function () {
+                let allUsers = client.store.rooms[roomId].currentState.members;
+                console.log("admin button for ",matrixUserList.selectedIndex, matrixUserList[matrixUserList.selectedIndex].value);
+                let targetUserId = matrixUserList[matrixUserList.selectedIndex].value;
+                console.log("target user",allUsers[targetUserId]);
+                console.log("acting user",allUsers[matrixUser.userId]);
+
+                const powerLevelEvent = client.store.rooms[roomId].currentState.getStateEvents('m.room.power_levels', '');
+                try {
+                  let changeResult = await client.setPowerLevel(roomId,targetUserId,69,powerLevelEvent);
+                  notifier.success("successfully made "+targetUserId+" room admin for "+roomId);
+                  matrixAdminButton.style.visibility="hidden";
+                  matrixBanButton.style.visibility="visible";
+                } catch {
+                  notifier.error("failed to make "+targetUserId+" room admin for "+roomId);
+                }
+                  
+              }
+            }
+            if (matrixBanButton){
+              matrixBanButton.onclick  = async function () {
+                let allUsers = client.store.rooms[roomId].currentState.members;
+                console.log("remove admin button for ",matrixUserList.selectedIndex, matrixUserList[matrixUserList.selectedIndex].value);
+                let targetUserId = matrixUserList[matrixUserList.selectedIndex].value;
+                console.log("target user",allUsers[targetUserId]);
+                console.log("acting user",allUsers[matrixUser.userId]);
+
+                const powerLevelEvent = client.store.rooms[roomId].currentState.getStateEvents('m.room.power_levels', '');
+                try {
+                  let changeResult = await client.setPowerLevel(roomId,targetUserId,0,powerLevelEvent);
+                  notifier.success("successfully removed admin from "+targetUserId+" for "+roomId);
+                  matrixAdminButton.style.visibility="visible";
+                  matrixBanButton.style.visibility="hidden";
+                } catch {
+                  notifier.error("error attempting to remove admin from "+targetUserId+" for "+roomId);
                 }
               }
             }
