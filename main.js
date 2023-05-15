@@ -193,11 +193,13 @@ async function register ({
         }
       }
       if (autoUser){
-        let newUser = await sharedCreateUser(userName);
-        if (newUser){
-          console.log("███ created new user with shared secret",userName,newUser);
-          storageManager.storeData("mu-"+userName,newUser);
-          return res.status(200).send(newUser);
+        if (sharedSecret){
+          let newUser = await sharedCreateUser(userName);
+          if (newUser){
+            console.log("███ created new user with shared secret",userName,newUser);
+            storageManager.storeData("mu-"+userName,newUser);
+            return res.status(200).send(newUser);
+          }
         }
         newUser = await createUser(userName);
         if (newUser){
@@ -595,12 +597,14 @@ async function register ({
       console.log("███ error attempting to get nonce",nonceRequest,err);
       return;
     }
+    console.log("███ more nonce",nonce);
     if (nonce){
       let newUser={};
       newUser.nonce=nonce;
       newUser.username=user;
       newUser.password=password;
       newUser.admin = false;
+      console.log("███ new user with nonce",newUSer);
       let macText=nonce+'\0'+user+'\0'+password+'\0'+"notadmin";
       let macEncodedString = Buffer.from(macText, 'utf-8').toString();
       let mac = hmacsha1(sharedSecret, macEncodedString);

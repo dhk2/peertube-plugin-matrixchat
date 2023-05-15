@@ -84,7 +84,11 @@ async function register ({ registerHook, peertubeHelpers }) {
 
             if (videoInfo){
               let channel=videoInfo.data.channel.name;
-              console.log("channel to get chatroom for",channel);
+              if (!videoInfo.data.channel.isLocal){
+                channel=channel+'@'+videoInfo.data.channel.host;
+              }
+              console.log("channel to get chatroom for",channel,video.data.channel);
+              
               let channelDisplay = videoInfo.data.channel.displayName;
               let chatCreateResult = createChat(channel,channelDisplay);
             } else {
