@@ -120,7 +120,8 @@ async function register ({ registerHook, peertubeHelpers }) {
   })
   registerHook({
     target: 'action:video-channel-update.video-channel.loaded',
-    handler: async () => {
+    handler: async (testy,toasty) => {
+      console.log("testing feed into video channel update",testy,toasty);
       let channelUpdate = document.getElementsByClassName("form-group");
       let channel = (window.location.href).split("/").pop();
       let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+encodeURIComponent(channel);
@@ -169,7 +170,7 @@ async function register ({ registerHook, peertubeHelpers }) {
     }
   })
   async function createChat(channelName,channelDisplay){
-    console.log(channelName);
+    console.log("channel to create chat for", channelName);
     let chatApi = peertubeHelpers.getBaseRouterRoute()+"/getchatroom?channel="+channelName;
     let roomId,maxHeight,userToken;
     console.log("room request api",chatApi);
