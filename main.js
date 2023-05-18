@@ -387,7 +387,7 @@ async function register ({
       roomData.room_alias_name = matrixChannel;
       roomData.visibility = "public";
       roomData.preset= "public_chat";
-
+      console.log("███ room configure api",createRoomApi,roomData);
       let roomConfigureApi,roomConfigureData;
       try {
         creationResult = await axios.post(createRoomApi, roomData );
