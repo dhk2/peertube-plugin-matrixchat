@@ -264,7 +264,7 @@ async function register ({
       console.log("███ authorized user",user.dataValues.username);
       matrixUser = await storageManager.getData("mu-" + user.dataValues.username);
     } else {
-      console.log("failed to load authorized user",res)
+      console.log("failed to load authorized user");
     }
     let channel = req.query.channel;
     //hack for crossnetwork alpha testing
@@ -499,6 +499,47 @@ async function register ({
     }
     return res.status(400).send();
   })
+    router.use('/getchatjson', async (req, res) => {
+    console.log("███ getting chat json", req.query);
+    let channel = req.query.channel;
+    let instance = req.query.instance;
+    if (!channel){
+      console.log("███ no channel requested",req.query);
+       return res.status(400).send();
+    }
+    let chat ={};
+    chat.protocol="matrix";
+    let channelDataApi = base+ "/api/v1/video-channels/"+channel;
+    let channelData;
+    try {
+      channelData = await axios.get(channelDataApi);
+    } catch (err){
+      console.log("unable to get channel data",channelDataApi);
+    }
+    let channelOwner;
+    if (channelData && channelData.data && channelData.data.ownerAccount){
+      channelOwner = channelData.data.ownerAccount.name;
+    }
+    let ownerAddress;
+    if (channelOwner){
+      ownerAddress = await storageManager.getData("mu-" + channelOwner);
+    }
+    if (ownerAddress){
+      chat.accountId=ownerAddress.userId;
+    }
+    let parts = homeServer.split("/");
+    chat.server = parts[2];
+    let chatSpace = await storageManager.getData("matrix" + "-" + channel)
+    if (chatSpace){
+      chat.space=chatSpace;
+    }
+    console.log ("███ chat room json",chat);
+    return res.status(200).send(chat);
+    
+    if (instance){
+      console.log("todo, deal with federated requests or remove option");
+    }
+  })
   async function checkTokenValid(user){
     let turnServer =  homeServer+'/_matrix/client/r0/voip/turnServer';
     let headers = {headers: {Authorization: 'Bearer ' + user.accessToken }};
@@ -604,7 +645,7 @@ async function register ({
       newUser.username=user;
       newUser.password=password;
       newUser.admin = false;
-      console.log("███ new user with nonce",newUSer);
+      console.log("███ new user with nonce",newUser);
       let macText=nonce+'\0'+user+'\0'+password+'\0'+"notadmin";
       let macEncodedString = Buffer.from(macText, 'utf-8').toString();
       let mac = hmacsha1(sharedSecret, macEncodedString);
