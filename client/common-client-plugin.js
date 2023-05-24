@@ -22,11 +22,13 @@ async function register ({ registerHook, peertubeHelpers }) {
         if (fullName){
           let nameEnd = fullName.indexOf(':');
           let clientName = fullName.substring(1,nameEnd);
-          console.log("███ client exists already when initializing account",client.credentials.userId,client.isGuestAccount,clientName,user.userName);
-          if (user.userName != clientName){
-            console.log(">>>>>Names do not match<<<<<");
+          console.log("███ client exists already when initializing account",client.credentials.userId,client.isGuestAccount,clientName,user.username);
+          if (user.username != clientName){
+            console.log(">>>>>Names do not match<<<<<",user.username,client);
             //await client.logout();
-            client=undefined;
+            await client.stopClient();
+            console.log("client after stopping",client);
+            client = undefined
           }
         }
       }
@@ -36,8 +38,9 @@ async function register ({ registerHook, peertubeHelpers }) {
         try {
           let userData =await axios.get(userApi, { headers: await peertubeHelpers.getAuthHeader() });
           matrixUser = userData.data;
-          console.log("matrix user data ",matrixUser);
+          console.log("matrix user data ",matrixUser,client);
           if (matrixUser){
+            console.log("**creating client**",matrixUser,client);
             client = sdk.createClient(matrixUser);
           }
         } catch (err){
@@ -48,6 +51,7 @@ async function register ({ registerHook, peertubeHelpers }) {
       }
       if (client){
         //console.log("███ client exists",client.credentials.userId,client.isGuestAccount);
+        console.log("**starting matrix client**",matrixUser,client);
         client.startClient();
         client.once('sync', async function(state, prevState, res) {
           console.log("matrix state",state); // state will be 'PREPARED' when the client is ready to use
@@ -101,6 +105,15 @@ async function register ({ registerHook, peertubeHelpers }) {
     }
   })
   registerHook({
+    target : 'action:login.init',
+    handler: async () => {
+        if (client){
+          await client.stopClient();
+          client=undefined;
+        }
+    }
+  })
+  registerHook({
     target: 'action:video-watch.player.loaded',
     handler: async ({ player, video }) => {
       var test = document.getElementById('matrix-container');
@@ -119,6 +132,7 @@ async function register ({ registerHook, peertubeHelpers }) {
     handler: async () => {
       console.log("user data for logged in user",client);
       if (client){
+        await client.stopClient();
         client=undefined;
       }
     }
@@ -194,14 +208,16 @@ async function register ({ registerHook, peertubeHelpers }) {
       try {
         let userData =await axios.get(guestUserApi);
         matrixUser = userData.data;
-        console.log("matrix guest user data ",matrixUser);
+        console.log("matrix guest user data ",matrixUser,client);
         if (matrixUser){
+          console.log("**creating client**",matrixUser,client);
           client = sdk.createClient(matrixUser);
         }
       } catch (err){
         console.log("error attempting guest login to matrix",guestUserApi,matrixUser);
       }
       if (client){
+        console.log("**starting client**",matrixUser,client);
         client.startClient();
         client.once('sync', async function(state, prevState, res) {
           console.log("Matrix state",state); // state will be 'PREPARED' when the client is ready to use

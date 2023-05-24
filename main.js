@@ -499,8 +499,49 @@ async function register ({
     }
     return res.status(400).send();
   })
-    router.use('/getchatjson', async (req, res) => {
+  router.use('/getchatjson', async (req, res) => {
     console.log("███ getting chat json", req.query);
+    let channel = req.query.channel;
+    let instance = req.query.instance;
+    if (!channel){
+      console.log("███ no channel requested",req.query);
+       return res.status(400).send();
+    }
+    let chat ={};
+    chat.protocol="matrix";
+    let channelDataApi = base+ "/api/v1/video-channels/"+channel;
+    let channelData;
+    try {
+      channelData = await axios.get(channelDataApi);
+    } catch (err){
+      console.log("unable to get channel data",channelDataApi);
+    }
+    let channelOwner;
+    if (channelData && channelData.data && channelData.data.ownerAccount){
+      channelOwner = channelData.data.ownerAccount.name;
+    }
+    let ownerAddress;
+    if (channelOwner){
+      ownerAddress = await storageManager.getData("mu-" + channelOwner);
+    }
+    if (ownerAddress){
+      chat.accountId=ownerAddress.userId;
+    }
+    let parts = homeServer.split("/");
+    chat.server = parts[2];
+    let chatSpace = await storageManager.getData("matrix" + "-" + channel)
+    if (chatSpace){
+      chat.space=chatSpace;
+    }
+    console.log ("███ chat room json",chat);
+    return res.status(200).send(chat);
+    
+    if (instance){
+      console.log("todo, deal with federated requests or remove option");
+    }
+  })
+  router.use('/v4vchat', async (req, res) => {
+    console.log("███ getting chat message", req.query);
     let channel = req.query.channel;
     let instance = req.query.instance;
     if (!channel){

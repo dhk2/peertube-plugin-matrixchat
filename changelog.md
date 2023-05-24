@@ -1,3 +1,6 @@
+.oo5
+- .stopclient instead of .logout appears to be working for switching between accounts
+
 .004
 - minor bugfix
 
